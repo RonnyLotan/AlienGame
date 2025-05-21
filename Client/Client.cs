@@ -224,7 +224,7 @@ namespace Client
             }
             else
             {
-                // handle disconnect
+                // handle exit lobby
             }
         }
 
@@ -243,6 +243,22 @@ namespace Client
             if ((user = EstablishConnection(client!, token)) is null)
             {
                 MessageBox.Show("Failed to establish connection!!! Quitting", "Fatal Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                client.Close();
+
+                return false;
+            }
+
+            if (Login(user, token))
+            {
+                MessageBox.Show("Failed to log in!!! Quitting", "Fatal Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                client.Close();
+
+                return false;
+            }
+
+            if (EnterLobby(user, token))
+            {
+                MessageBox.Show("Failed to enter lobby!!! Quitting", "Fatal Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 client.Close();
 
                 return false;
@@ -329,6 +345,72 @@ namespace Client
                         {
                             _ = User.Logger.Log($"Registration failed. Notifying user");
                             MessageBox.Show($"Registration failed - {registerResponseMsg.Reason}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private bool EnterLobby(UserData user, CancellationToken token)
+        {
+            _ = User.Logger.Log($"Prepare UI for enterring loby");
+            GUI.invokeControl(JoinLobbyButton, () => { JoinLobbyButton.Enabled = true; });
+            GUI.invokeControl(GameLogTextBox, () =>
+            {
+                GameLogTextBox.AppendText($"Please enter existing lobby or create new one\n");
+                GameLogTextBox.SelectionStart = GameLogTextBox.Text.Length;
+                GameLogTextBox.ScrollToCaret();
+            });
+
+            // Wait for login to complete
+            while (!token.IsCancellationRequested)
+            {
+                _ = User.Logger.Log($"Inside join lobby/create new lobby loop");
+                CommMessage? message;
+                while (!token.IsCancellationRequested && user.Reader.ReadMessage(out message))
+                {
+                    if (message!.Type == CommMessage.MessageType.JoinLobby && message is JoinLobbyResponseMessage joinResponseMsg)
+                    {
+                        _ = User.Logger.Log($"Receved response to join lobby attempt - {joinResponseMsg.Text}");
+                        if (joinResponseMsg.Success)
+                        {
+                            user.IsInLobby = true;
+                            GUI.invokeControl(ConnectionStatusLabel, () =>
+                            {
+                                ConnectionStatusLabel.Text = "In Lobby!";
+                                ConnectionStatusLabel.ForeColor = Color.Purple;
+                            });
+
+                            GUI.invokeControl(ConnectButton, () =>
+                            {
+                                JoinLobbyButton.Text = "Exit Lobby";
+                            });                            
+
+                            _ = User.Logger.Log($"Updated UI after successful lobby entrance");
+
+                            return true;
+                        }
+                        else
+                        {
+                            _ = User.Logger.Log($"Join lobby failed. Notifying user");
+                            MessageBox.Show($"Join Lobby Error - {joinResponseMsg.Reason}", "Join Lobby", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+
+                    }
+                    if (message!.Type == CommMessage.MessageType.CreateLobby && message is CreateLobbyResponseMessage createResponseMsg)
+                    {
+                        _ = User.Logger.Log($"Received response to create lobby attempt - {createResponseMsg.Text}");
+                        if (createResponseMsg.Success)
+                        {
+                            _ = User.Logger.Log($"Lobby creation succeeded. Notifying user");
+                            MessageBox.Show($"Lobby creation succeeded - please log in", "Create Lobby", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        }
+                        else
+                        {
+                            _ = User.Logger.Log($"Lobby creation failed. Notifying user");
+                            MessageBox.Show($"Lobby creation failed - {createResponseMsg.Reason}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                         }
                     }
                 }

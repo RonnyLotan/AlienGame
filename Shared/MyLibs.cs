@@ -432,7 +432,8 @@ namespace Shared
     public class Lobby
     {
         public required string Name { get; set; }
-        public required string HashedPassword { get; set; }
+        public required string Salt { get; set; }
+        public required string HashedEntryCode { get; set; }
         public required string Host { get; set; }
     }
 
@@ -477,7 +478,7 @@ namespace Shared
             {
                 Name = name,
                 Salt = salt,
-                HashedPassword = Encryption.ComputeHash(password + salt),
+                HashedPassword = Encryption.ComputeHash(password, salt),
                 Email = email
             }
 
@@ -498,10 +499,10 @@ namespace Shared
             return JsonSerializer.Deserialize<Lobby>(jsonData);
         }
 
-        public static bool RegisterLobby(string name, string hashedPassword, string host)
+        public static bool RegisterLobby(string name, string entryCode, string host)
         {
             bool not_valid_params() => string.IsNullOrWhiteSpace(name) ||
-                string.IsNullOrWhiteSpace(hashedPassword);
+                string.IsNullOrWhiteSpace(entryCode);
 
             if (not_valid_params()) return false;
 
@@ -510,11 +511,14 @@ namespace Shared
             if (File.Exists(path))
                 return false;
 
+            var salt = Encryption.GenerateRandomString(10);
+
             Directory.CreateDirectory(LOBBYFOLDER);
             var lobby = new Lobby
             {
                 Name = name,
-                HashedPassword = hashedPassword,
+                Salt = salt,
+                HashedEntryCode = Encryption.ComputeHash(entryCode, salt),
                 Host = host
             };
 

@@ -194,7 +194,7 @@ namespace Server
                             return;
                         }
 
-                        if (lobby != null && lobby.HashedPassword == joinLobbyMsg.Password)
+                        if (lobby != null && lobby.HashedEntryCode == Encryption.ComputeHash(joinLobbyMsg.EntryCode, lobby.Salt))
                         {
                             if (lobby.Host == User.Name)
                                 server_.OpenLobby(lobby.Name, this);
@@ -222,7 +222,7 @@ namespace Server
                         bool created = false;
                         try
                         {
-                            created = Jsn.RegisterLobby(createLobbyMsg.Name, createLobbyMsg.Password, User.Name);
+                            created = Jsn.RegisterLobby(createLobbyMsg.Name, createLobbyMsg.EntryCode, User.Name);
                         }
                         catch (Exception ex)
                         {

@@ -649,16 +649,16 @@ namespace Shared
 
     public abstract class LobbyRequestServerMessage : CommMessage
     {
-        protected LobbyRequestServerMessage(string name, string pwd)
+        protected LobbyRequestServerMessage(string name, string code)
         {
             Name = name;
-            Password = pwd;
+            EntryCode = code;
         }
 
-        public override string Text => base.Text + $"{Name}:{Password}";
+        public override string Text => base.Text + $"{Name}:{EntryCode}";
 
         public string Name { get; init; }
-        public string Password { get; init; }
+        public string EntryCode { get; init; }
     }
 
     // Attempt to create a new lobby
@@ -709,17 +709,17 @@ namespace Shared
             }
 
             var name = splitMsg[0];
-            var password = splitMsg[1];
+            var entryCode = splitMsg[1];
 
-            return Create(name, password);
+            return Create(name, entryCode);
         }
 
-        public static JoinLobbyRequestServerMessage Create(string name, string pwd)
+        public static JoinLobbyRequestServerMessage Create(string name, string code)
         {
-            return new JoinLobbyRequestServerMessage(name, pwd);
+            return new JoinLobbyRequestServerMessage(name, code);
         }
 
-        private JoinLobbyRequestServerMessage(string name, string pwd) : base(name, pwd)
+        private JoinLobbyRequestServerMessage(string name, string code) : base(name, code)
         {
         }
 

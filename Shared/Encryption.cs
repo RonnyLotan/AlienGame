@@ -135,7 +135,7 @@ namespace Shared
                 }
             }
         }
-        public static string ComputeHash(string password, string salt = "")
+        public static string ComputeHash(string password, string salt)
         {
             using (var sha256 = SHA256.Create())
             {
