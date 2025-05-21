@@ -205,7 +205,7 @@ namespace Client
                                     var lobbyName = createNewForm.LobbyName;
                                     var entryCode = createNewForm.EntryCode;
                                    
-                                    var reply = CreateNewLobbyRequestServerMessage.Create(lobbyName, entryCode);
+                                    var reply = CreateLobbyRequestServerMessage.Create(lobbyName, entryCode);
                                     User.Writer.WriteMessage(reply);
                                 }
                             }

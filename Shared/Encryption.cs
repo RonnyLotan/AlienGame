@@ -79,7 +79,6 @@ namespace Shared
                 return Convert.ToBase64String(aes.Key);
             }
         }
-
         public static string AesEncrypt(string data, string keyBase64)
         {
             byte[] key = Convert.FromBase64String(keyBase64);
@@ -108,7 +107,6 @@ namespace Shared
                 }
             }
         }
-
         public static string AesDecrypt(string encryptedDataBase64, string keyBase64)
         {
             byte[] encryptedData = Convert.FromBase64String(encryptedDataBase64);
@@ -137,12 +135,11 @@ namespace Shared
                 }
             }
         }
-
-        public static string ComputeHash(string password)
+        public static string ComputeHash(string password, string salt = "")
         {
             using (var sha256 = SHA256.Create())
             {
-                byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
+                byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password + salt));
                 StringBuilder builder = new StringBuilder();
                 for (int i = 0; i < bytes.Length; i++)
                 {
@@ -150,6 +147,19 @@ namespace Shared
                 }
                 return builder.ToString();
             }
+        }
+        public static string GenerateRandomString(int length)
+        {
+            const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+            Random random = new Random();
+            char[] result = new char[length];
+
+            for (int i = 0; i < length; i++)
+            {
+                result[i] = chars[random.Next(chars.Length)];
+            }
+
+            return new string(result);
         }
     }
 }

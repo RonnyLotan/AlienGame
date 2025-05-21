@@ -424,6 +424,7 @@ namespace Shared
     public class User
     {
         public required string Name { get; set; }
+        public required string Salt { get; set; }
         public required string HashedPassword { get; set; }
         public required string Email { get; set; }
     }
@@ -456,10 +457,10 @@ namespace Shared
             return JsonSerializer.Deserialize<User>(jsonData);        
         }
 
-        public static bool RegisterUser(string name, string hashedPassword, string email)
+        public static bool RegisterUser(string name, string password, string email)
         {
             bool not_valid_params() => string.IsNullOrWhiteSpace(name) ||
-                string.IsNullOrWhiteSpace(hashedPassword) ||
+                string.IsNullOrWhiteSpace(password) ||
                 string.IsNullOrWhiteSpace(email);
 
             if (not_valid_params()) return false;
@@ -469,13 +470,16 @@ namespace Shared
             if (File.Exists(path)) 
                 return false;
 
+            var salt = Encryption.GenerateRandomString(10);
+
             Directory.CreateDirectory(USERFOLDER);
             User user = new User
             {
                 Name = name,
-                HashedPassword = hashedPassword,
+                Salt = salt,
+                HashedPassword = Encryption.ComputeHash(password + salt),
                 Email = email
-            };
+            }
 
             string jsonData = JsonSerializer.Serialize(user,
                 new JsonSerializerOptions { WriteIndented = true });

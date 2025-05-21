@@ -26,7 +26,7 @@ namespace Client
             // Validate username
             if (!Username.All(char.IsLetterOrDigit))
             {
-                MessageBox.Show("Illegal Username - alphanumeric chracters only!", "Login Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Illegal Username - alphanumeric chracters only!", "Registration Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 UsernameTextBox.Clear();
                 PasswordTextBox.Clear();
 
@@ -36,7 +36,7 @@ namespace Client
             // Validate username
             if (!Email.All(c => char.IsLetterOrDigit(c) || c == '@' || c == '.' || c == '_') || Email.Count(c => c == '@') != 1)
             {
-                MessageBox.Show("Illegal email - alphanumeric chracters only (and '@', '_' or '.')!", "Login Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Illegal email - alphanumeric chracters only (and '@', '_' or '.')!", "Registration Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 EmailTextBox.Clear();
                 PasswordTextBox.Clear();
 
@@ -46,7 +46,15 @@ namespace Client
             // Validate password
             if (!Password.All(char.IsLetterOrDigit))
             {
-                MessageBox.Show("Illegal Password - alphanumeric chracters only!", "Login Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Illegal Password - alphanumeric chracters only!", "Registration Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                PasswordTextBox.Clear();
+
+                return;
+            }
+
+            if (Password.Length < 10)
+            {
+                MessageBox.Show("Illegal Password - must have at least 10 characters!", "Login Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 PasswordTextBox.Clear();
 
                 return;

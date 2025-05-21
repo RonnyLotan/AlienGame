@@ -127,7 +127,7 @@ namespace Server
                                 return;
                             }
 
-                            if (user != null && user.HashedPassword == loginMsg.Password)
+                            if (user != null && user.HashedPassword == Encryption.ComputeHash(loginMsg.Password, user.Salt))
                             {
                                 User.Name = user.Name;
 
