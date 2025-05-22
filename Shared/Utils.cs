@@ -16,7 +16,7 @@ namespace Shared
     
     public class GUI
     {
-        public static void invokeControl(Control c, Action act)
+        public static void InvokeControl(Control c, Action act)
         {
             if (c.InvokeRequired)
             {
@@ -30,7 +30,7 @@ namespace Shared
 
         public static void AppendLine(string line, RichTextBox rtb)
         {
-            invokeControl(rtb, () =>
+            InvokeControl(rtb, () =>
             {
                 rtb.AppendText(line);
                 rtb.SelectionStart = rtb.Text.Length;
@@ -40,7 +40,7 @@ namespace Shared
 
         public static void Update(string line, Label lbl)
         {
-            invokeControl(lbl, () =>
+            InvokeControl(lbl, () =>
             {
                 lbl.Text = line;                
             });

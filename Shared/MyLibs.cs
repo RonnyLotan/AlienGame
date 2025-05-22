@@ -480,7 +480,7 @@ namespace Shared
                 Salt = salt,
                 HashedPassword = Encryption.ComputeHash(password, salt),
                 Email = email
-            }
+            };
 
             string jsonData = JsonSerializer.Serialize(user,
                 new JsonSerializerOptions { WriteIndented = true });
