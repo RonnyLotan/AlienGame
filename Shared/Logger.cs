@@ -5,7 +5,7 @@ namespace Shared
 {
     public class Logger
     {
-        private static readonly string _logFilePath = "..\\..\\..\\..\\..\\shared_log.txt";
+        public static readonly string LogFilePath = "..\\..\\..\\..\\..\\shared_log.txt";
 
         private static readonly Mutex _mutex = new Mutex(false, "Global\\MyLoggerMutex");
 
@@ -14,14 +14,18 @@ namespace Shared
         public Logger(string id)
         {
             this.id_ = id;
+
+            if (id == "Server")
+                File.Delete(LogFilePath);
         }
 
-        public async Task Log(string message)
+        public bool Log(string message)
         {
             _mutex.WaitOne();
             try
             {
-                await File.AppendAllTextAsync(_logFilePath, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} [[{id_}]]- {message}{Environment.NewLine}");
+                File.AppendAllText(LogFilePath, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} [[{id_}]]- {message}{Environment.NewLine}");
+                return true;
             }
             finally
             {

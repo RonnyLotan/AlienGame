@@ -21,10 +21,18 @@ namespace Shared
 
         public bool ReadMessage(out CommMessage? message)
         {
-            string? line = reader_.ReadLine();
-            if (line is not null)
+            try
             {
-                message = CommMessage.FromText(line, sessionAesKey_);
+                string? line = reader_.ReadLine();
+                if (line is not null)
+                {
+                    message = CommMessage.FromText(line, sessionAesKey_);
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                message = CommunicationErrorMessage.Create(ex.Message);
                 return true;
             }
 

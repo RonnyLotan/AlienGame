@@ -11,6 +11,7 @@ namespace Shared
     {
         private StreamWriter writer_;
         private string sessionAesKey_;
+        public string SessionAesKey {  get { return sessionAesKey_; } }
 
         public bool EncryptionEstablished = !Global.USE_ENCRYPTION;
         

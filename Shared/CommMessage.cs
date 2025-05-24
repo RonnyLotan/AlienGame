@@ -1,5 +1,6 @@
 ﻿using System.Drawing;
 using System.Windows.Forms;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Shared
 {
@@ -41,7 +42,8 @@ namespace Shared
             MessageBodyError = 902,
             PlayerQuitError = 903,
             PlayerMessageError = 904,
-            EncryptionError = 905
+            EncryptionError = 905,
+            CommunicationError = 906
         }
 
         protected enum ResponseToCardOffer
@@ -89,11 +91,12 @@ namespace Shared
                     case MessageType.GameLog: return GameLogClientMessage.FromText(msgBody);
                     case MessageType.Register: return RegisterResponseMessage.FromText(msgBody);
                     case MessageType.CreateLobby: return CreateLobbyResponseMessage.FromText(msgBody);
+                    case MessageType.AesKey: return AesKeyMessage.FromText(msgBody);
 
                     case MessageType.BroadcastChat: return BroadcastChatServerMessage.FromText(msgBody);
                     case MessageType.OfferCard: return OfferCardServerMessage.FromText(msgBody);
                     case MessageType.LoginRequest: return LoginRequestServerMessage.FromText(msgBody);
-                    case MessageType.CreateLobbyRequest: return CreateLobbyRequestServerMessage.FromText(msgBody);
+                    case MessageType.CreateLobbyRequest: return CreateLobbyRequestServerMessage.FromText(msgBody);                        
 
                     case MessageType.ResponseToOffer: return ResponseToOfferMessage.FromText(msgBody);
                     case MessageType.PublicKey: return PublicKeyMessage.FromText(msgBody);
@@ -949,7 +952,6 @@ namespace Shared
             msgType_ = type;
             msgBody_ = msgBody;
         }
-
         public override MessageType Type => type_;
 
         public override string Text => base.Text + $"{msgType_};{msgBody_}";
@@ -983,5 +985,32 @@ namespace Shared
         public override string Text => base.Text + reason_;
 
         private string reason_;
+    }
+
+    // Message to report a communication error
+    public class CommunicationErrorMessage : CommMessage
+    {
+        private static MessageType type_ = MessageType.CommunicationError;
+
+        public static CommMessage FromText(string msgBody)
+        {
+            return Create(msgBody);
+        }
+
+        public static CommunicationErrorMessage Create(string error)
+        {
+            return new CommunicationErrorMessage(error);
+        }
+
+        private CommunicationErrorMessage(string error)
+        {
+            Error = error;
+        }
+
+        public override MessageType Type => type_;
+
+        public override string Text => base.Text + Error;
+
+        public string Error;
     }
 }

@@ -9,18 +9,19 @@ namespace Client
     public partial class Client : Form
     {
         private CancellationTokenSource cts_;
-        
+
         private UserData? user_;
-        internal UserData User { 
-            get 
+        internal UserData User
+        {
+            get
             {
                 if (user_ == null)
                 {
                     throw new InvalidOperationException("Accessing User before it was initialized");
                 }
 
-                return user_; 
-            } 
+                return user_;
+            }
             private set
             {
                 user_ = value;
@@ -57,14 +58,14 @@ namespace Client
 
         public void log(string text)
         {
-            _ = User.Logger.Log(text);  
+            _ = User.Logger.Log(text);
         }
 
         private void LoadAsync(object sender, EventArgs e)
         {
             var trd = new Thread(() => ClientLoop(cts_.Token));
             trd.IsBackground = true;
-            trd.Start();            
+            trd.Start();
         }
 
         public void ActivateNotYourTurnMode()
@@ -107,7 +108,7 @@ namespace Client
                 GUI.InvokeControl(cardPictures[i], () =>
                 {
                     cardPictures[i].Enabled = false;
-                });                
+                });
             }
 
             GUI.InvokeControl(OfferAcceptButton, () =>
@@ -169,7 +170,7 @@ namespace Client
                             string password = loginForm.Password;
 
                             var reply = LoginRequestServerMessage.Create(username, password);
-                            User.Writer.WriteMessage(reply);                            
+                            User.Writer.WriteMessage(reply);
                         }
                     }
                 }
@@ -199,7 +200,7 @@ namespace Client
                                     log($"User completed registration form");
                                     var lobbyName = createNewForm.LobbyName;
                                     var entryCode = createNewForm.EntryCode;
-                                   
+
                                     var reply = CreateLobbyRequestServerMessage.Create(lobbyName, entryCode);
                                     User.Writer.WriteMessage(reply);
                                 }
@@ -225,33 +226,42 @@ namespace Client
 
         private bool ClientLoop(CancellationToken token)
         {
+            Logger logger = new Logger($"Unknown Client");
+            _ = logger.Log("ClientLoop - Main client loop started");
+
             // Add code here to search for server
 
             var client = new TcpClient(Global.SERVER_IP, Global.SERVER_TCPPORT);
+            _ = logger.Log("Client trying to connect to server");
             if (client is null || !client.Connected)
             {
                 MessageBox.Show("Failed to establish connection!!! Quitting", "Fatal Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                logger.Log($"ClientLoop - Failed to establish initial connection to server");
                 return false;
             }
+            _ = logger.Log("ClientLoop - Client connected to server");
 
-            UserData? user;
-            if ((user = EstablishConnection(client!, token)) is null)
+            if (EstablishConnection(client!, token, logger))
             {
                 MessageBox.Show("Failed to establish connection!!! Quitting", "Fatal Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 client.Close();
 
+                logger.Log($"ClientLoop - Failed to get encryption keys");
                 return false;
-            }                                                  
+            }
+            logger = User.Logger;
+            logger.Log($"ClientLoop - got encryption keys");
 
-            if (Login(user, token))
+            if (Login(token))
             {
                 MessageBox.Show("Failed to log in!!! Quitting", "Fatal Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 client.Close();
 
+                logger.Log($"ClientLoop - Failed to log in");
                 return false;
             }
 
-            if (EnterLobby(user, token))
+            if (EnterLobby(User, token))
             {
                 MessageBox.Show("Failed to enter lobby!!! Quitting", "Fatal Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 client.Close();
@@ -259,12 +269,12 @@ namespace Client
                 return false;
             }
 
-            var handler = new MessageHandler(this, user);
+            var handler = new MessageHandler(this, User);
             CommMessage? message;
             try
             {
                 log($"Enter main loop");
-                while (!token.IsCancellationRequested && user.Reader.ReadMessage(out message))
+                while (!token.IsCancellationRequested && User.Reader.ReadMessage(out message))
                     handler.Handle(message!);
             }
             catch (Exception ex)
@@ -277,71 +287,79 @@ namespace Client
             return true;
         }
 
-        private bool Login(UserData user, CancellationToken token)
+        private bool Login(CancellationToken token)
         {
-            log($"Prepare UI for login");
+            log($"Login - Prepare UI for login");
 
-            // 
             GUI.InvokeControl(ConnectButton, () => { ConnectButton.Enabled = true; });
-            GUI.AppendLine($"Please log in or register\n", GameLogTextBox);                
+            GUI.AppendLine($"Please log in or register\n", GameLogTextBox);
 
             // Wait for login to complete
-            while (!token.IsCancellationRequested)
+            log($"Login - done preparing UI for login");
+
+            CommMessage? message;
+            while (!token.IsCancellationRequested && User.Reader.ReadMessage(out message))
             {
-                log($"Inside login/registration loop");
-                CommMessage? message;
-                while (!token.IsCancellationRequested && user.Reader.ReadMessage(out message))
+                log($"Login - Inside login/registration loop. Got message: {message}");
+                if (message!.Type == CommMessage.MessageType.Login && message is LoginResponseMessage loginResponseMsg)
                 {
-                    if (message!.Type == CommMessage.MessageType.Login && message is LoginResponseMessage loginResponseMsg)
+                    log($"Login - recieved response to login attempt - {loginResponseMsg.Text}");
+                    if (loginResponseMsg.Success)
                     {
-                        log($"Recieved response to login attempt - {loginResponseMsg.Text}");
-                        if (loginResponseMsg.Success)
+                        log($"Login - login succeeded");
+                        User.IsLoggedIn = true;
+                        GUI.InvokeControl(ConnectionStatusLabel, () =>
                         {
-                            user.IsLoggedIn = true;
-                            GUI.InvokeControl(ConnectionStatusLabel, () =>
-                            {
-                                ConnectionStatusLabel.Text = "Connected!";
-                                ConnectionStatusLabel.ForeColor = Color.Green;
-                            });
+                            ConnectionStatusLabel.Text = "Connected!";
+                            ConnectionStatusLabel.ForeColor = Color.Green;
+                        });
+                        log($"Login - updating connection status label");
 
-                            GUI.InvokeControl(ConnectButton, () =>
-                            {
-                                ConnectButton.Text = "Disconnect";
-                            });                            
-
-                            GUI.InvokeControl(JoinLobbyButton, () =>
-                            {
-                                JoinLobbyButton.Enabled = true;
-                            });
-
-                            log($"Updated UI after successful login");
-
-                            return true;                            
-                        }
-                        else
+                        GUI.InvokeControl(ConnectButton, () =>
                         {
-                            log($"Login failed. Notifying user");
-                            MessageBox.Show($"Login Error - {loginResponseMsg.Reason}", "Login", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        }
+                            ConnectButton.Text = "Disconnect";
+                        });
+                        log($"Login - updating connection button");
 
+                        GUI.InvokeControl(JoinLobbyButton, () =>
+                        {
+                            JoinLobbyButton.Enabled = true;
+                        });
+                        log($"Login - updating join lobby button");
+
+                        log($"Login - Updated UI done");
+
+                        return true;
                     }
-                    if (message!.Type == CommMessage.MessageType.Register && message is RegisterResponseMessage registerResponseMsg)
+                    else
                     {
-                        log($"Received response to login attempt - {registerResponseMsg.Text}");
-                        if (registerResponseMsg.Success)
-                        {
-                            log($"Registration succeeded. Notifying user");
-                            MessageBox.Show($"Registration succeeded - please log in", "Registration", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                        }
-                        else
-                        {
-                            log($"Registration failed. Notifying user");
-                            MessageBox.Show($"Registration failed - {registerResponseMsg.Reason}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        }
+                        log($"Login - Failed. Notifying user");
+                        MessageBox.Show($"Login Error - {loginResponseMsg.Reason}", "Login", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
+
+                }
+                else if (message!.Type == CommMessage.MessageType.Register && message is RegisterResponseMessage registerResponseMsg)
+                {
+                    log($"Login - recieved response to registration attempt - {registerResponseMsg.Text}");
+                    if (registerResponseMsg.Success)
+                    {
+                        log($"Login - registration succeeded. Notifying user");
+                        MessageBox.Show($"Registration succeeded - please log in", "Registration", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    else
+                    {
+                        log($"Login registration failed. Notifying user");
+                        MessageBox.Show($"Registration failed - {registerResponseMsg.Reason}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+                else if (message!.Type == CommMessage.MessageType.CommunicationError && message is CommunicationErrorMessage commErrorMsg)
+                {
+                    log($"Communication error: {commErrorMsg.Error}");
+                    return false;
                 }
             }
 
+            log($"Login - Failed. Exiting Login method");
             return false;
         }
 
@@ -378,7 +396,7 @@ namespace Client
                             GUI.InvokeControl(ConnectButton, () =>
                             {
                                 JoinLobbyButton.Text = "Exit Lobby";
-                            });                            
+                            });
 
                             log($"Updated UI after successful lobby entrance");
 
@@ -391,7 +409,7 @@ namespace Client
                         }
 
                     }
-                    if (message!.Type == CommMessage.MessageType.CreateLobby && message is CreateLobbyResponseMessage createResponseMsg)
+                    else if (message!.Type == CommMessage.MessageType.CreateLobby && message is CreateLobbyResponseMessage createResponseMsg)
                     {
                         log($"Received response to create lobby attempt - {createResponseMsg.Text}");
                         if (createResponseMsg.Success)
@@ -405,21 +423,29 @@ namespace Client
                             MessageBox.Show($"Lobby creation failed - {createResponseMsg.Reason}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                         }
                     }
+                    else if (message!.Type == CommMessage.MessageType.CommunicationError && message is CommunicationErrorMessage commErrorMsg)
+                    {
+                        log($"Communication error: {commErrorMsg.Error}");
+                        return false;
+                    }
                 }
             }
 
             return false;
         }
 
-        private UserData? EstablishConnection(TcpClient client, CancellationToken token)
+        private bool EstablishConnection(TcpClient client, CancellationToken token, Logger logger)
         {
             var nws = client.GetStream();
-            var reader = new StreamReader(nws, Encoding.UTF8);
-            var writer = new StreamWriter(nws, Encoding.UTF8) { AutoFlush = true };
+            var reader = new StreamReader(nws, Encoding.UTF8, leaveOpen: true);
+            var writer = new StreamWriter(nws, Encoding.UTF8, leaveOpen: true) { AutoFlush = true };
+
+            _ = logger.Log("EstablishConnection - got streams");
 
             var (privateKey, publicKey) = Encryption.GenerateRsaKeyPair();
 
             // Send my public key
+            _ = logger.Log("EstablishConnection - sending PublicKey message to server");
             writer.WriteLine(PublicKeyMessage.Create(publicKey, 0).Text);
 
             int? myId = null;
@@ -429,54 +455,76 @@ namespace Client
             // Get public key and Id from server
             while (!token.IsCancellationRequested)
             {
+                _ = logger.Log("EstablishConnection - enter loop waiting to receive public key from server");
                 string? msg;
                 if ((msg = reader.ReadLine()) != null)
                 {
+                    _ = logger.Log($"EstablishConnection - got message from server: {msg}");
                     var parsedMessage = CommMessage.FromText(msg);
+                    _ = logger.Log($"EstablishConnection - parsed message: {parsedMessage}");
 
                     if (parsedMessage.Type == CommMessage.MessageType.PublicKey && parsedMessage is PublicKeyMessage publicKeyMsg)
                     {
                         myId = publicKeyMsg.Id;
                         serverPublicKey = publicKeyMsg.Key;
 
+                        _ = logger.Log($"EstablishConnection - got public key message. My Id: {myId}");
+
                         break;
                     }
                 }
             }
+            _ = logger.Log("EstablishConnection - done getting public key from server");
 
             if (myId is not null && serverPublicKey is not null)
             {
-                Logger logger = new Logger($"[[Client:{myId}]]");
+                logger = new Logger($"Client:{myId}");
                 _ = logger.Log($"Got public key from server");
 
+                logger.Log("EstablishConnection - enter loop to get AES key");
                 // Get public key and Id from server
                 while (!token.IsCancellationRequested)
                 {
                     string? msg;
                     if ((msg = reader.ReadLine()) != null)
                     {
+                        logger.Log($"EstablishConnection - got messge from server: {msg}");
                         var parsedMessage = CommMessage.FromText(msg);
+                        logger.Log($"EstablishConnection - parsed message: {parsedMessage}");
 
                         if (parsedMessage.Type == CommMessage.MessageType.AesKey && parsedMessage is AesKeyMessage aesKeyMsg)
                         {
                             aesKey = aesKeyMsg.Key;
+                            logger.Log($"EstablishConnection - got AES key: {aesKey}");
 
                             break;
                         }
                     }
                 }
+                logger.Log($"EstablishConnection - left AES loop");
 
                 if (aesKey is not null)
-                {
-                    reader.Close();
-                    writer.Close();
-                    nws.Close();
+                {                    
+                    try
+                    {
+                        User = new UserData(myId.Value, client, nws, aesKey, logger);
+                        return true;
+                    }
+                    catch (Exception e)
+                    {
+                        logger.Log($"EstablishConnection - failed create UserData: {e.Message}");
+                        return false;
+                    }
 
-                    return new UserData(myId.Value, client, aesKey, logger);
+                    return true;
                 }
+                else
+                    logger.Log($"EstablishConnection - failed to get Id or public key");
             }
+            else
+                logger.Log($"EstablishConnection - failed to get Id or public key");
 
-            return null;
+            return false;
         }
 
         public void DisplayCards(List<Card> cards)
@@ -486,7 +534,7 @@ namespace Client
                 GUI.InvokeControl(pict, () =>
                 {
                     pict.Image = image;
-                });                
+                });
             }
 
             log($"Updating the card display: {cards}");
@@ -541,7 +589,7 @@ namespace Client
             }
 
             if (e.KeyCode != Keys.Enter)
-                return;            
+                return;
 
             string userInput = ChatInputBox.Text;  // Get the text
 
@@ -589,7 +637,7 @@ namespace Client
                 {
                     Game.OfferedCardIndex = i;
                     break;
-                }                
+                }
             }
 
             log($"User selected the #{Game.OfferedCardIndex} card. Sending message to server");
@@ -597,13 +645,16 @@ namespace Client
             if (selectedPictureBox is not null)
                 selectedPictureBox.Invalidate(); // Force repaint to show selection
 
-            Game.PlayerMode = GameState.Mode.WaitForReponse;            
+            Game.PlayerMode = GameState.Mode.WaitForReponse;
             var response = OfferCardServerMessage.Create(Game.OfferedCard);
             User.Writer.WriteMessage(response);
         }
 
         private void CardPicture_Paint(object sender, PaintEventArgs e)
         {
+            if (game_ is null)
+                return;
+
             PictureBox? pb = sender as PictureBox;
             if (pb is not null && Game.OfferedCardIndex is not null)
             {

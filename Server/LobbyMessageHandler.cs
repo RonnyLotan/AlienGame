@@ -18,7 +18,7 @@ namespace Server
             users_ = lobby.getGuestUsers();
         }
 
-        public async void Handle(CommMessage msg, UserData sender)
+        public void Handle(CommMessage msg, UserData sender)
         {
             _ = logger_.Log($"GameMessageHandler: Received message {msg} from {sender}");
 
@@ -27,13 +27,13 @@ namespace Server
                 // A chat message was received from one of the users. Need to broadcast to everyone else.
                 var response = ReceiveChatClientMessage.Create(sender.Name!, broadcastChatMsg.Msg);
 
-                await logger_.Log($"Broadcast the chat message to all players except the sender");
+                _ = logger_.Log($"Broadcast the chat message to all players except the sender");
                 foreach (var user in users_)
                 {
                     if (sender.Name != user.Name)
                         lobby_.WriteUser(user.Id, response);
                 }
-                
+
                 _ = logger_.Log($"Sent {CommMessage.MessageType.ReceiveChat} message to all players");
 
                 return;
@@ -56,7 +56,7 @@ namespace Server
 
                 game = lobby_.Game!;
             }
-            
+
             switch (msg.Type)
             {
                 case CommMessage.MessageType.OfferCard:
@@ -91,7 +91,7 @@ namespace Server
 
                                     game.State = GameState.WaitForResponse;
 
-                                    await logger_.Log($"Sent {CommMessage.MessageType.AcceptCard} message to Receiver\ngame: {game}");
+                                    _ = logger_.Log($"Sent {CommMessage.MessageType.AcceptCard} message to Receiver\ngame: {game}");
                                 }
                             }
                             else
@@ -133,7 +133,7 @@ namespace Server
                                     _ = logger_.Log($"Sent {CommMessage.MessageType.TakeCard} message to Receiver\ngame: {game}");
                                 }
                                 else
-                                {                                    
+                                {
                                     game.NumRejections++;
                                     game.State = GameState.WaitForOffer;
 
@@ -150,6 +150,13 @@ namespace Server
                                 _ = logger_.Log($"Sent {CommMessage.MessageType.NotYourTurn} message to sender who is not the Receiver\ngame: {game}");
                             }
                         }
+                    }
+                    break;
+
+                case CommMessage.MessageType.CommunicationError:
+                    if (msg is CommunicationErrorMessage commErrorMsg)
+                    {
+                        _ = logger_.Log($"Communication error: {commErrorMsg.Error}");
                     }
                     break;
 

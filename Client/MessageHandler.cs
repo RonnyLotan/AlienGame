@@ -13,12 +13,10 @@ namespace Client
         private Client client_;
         private UserData user_;
 
-        private int myId_;
-
         public MessageHandler(Client client, UserData user)
         {
-            client_ = client; 
-            user_ = user; 
+            client_ = client;
+            user_ = user;
         }
 
         private void log(string text)
@@ -41,7 +39,7 @@ namespace Client
 
                         client_.Game.Cards = dealCardsMsg.CardList;
 
-                        client_.Game.PlayerMode = GameState.Mode.NotMyTurn;                        
+                        client_.Game.PlayerMode = GameState.Mode.NotMyTurn;
                     }
                     break;
 
@@ -64,7 +62,7 @@ namespace Client
                         client_.Game.ReceivedCard = acceptCardMsg.Card;
                         client_.UpdateStatus($"Do you accept #{client_.Game.NumRejections + 1} card from {acceptCardMsg.Giver}");
 
-                        client_.Game.PlayerMode = GameState.Mode.NeedToReply;                                               
+                        client_.Game.PlayerMode = GameState.Mode.NeedToReply;
                     }
                     break;
 
@@ -73,7 +71,7 @@ namespace Client
                     {
                         log($"ResponseToOffer message. Received response to my offer: {(responseMsg.Accept ? "Accept" : "Reject")}");
                         if (responseMsg.Accept)
-                        {                            
+                        {
                             client_.RemoveOfferedCard();
                             client_.Game.PlayerMode = GameState.Mode.NotMyTurn;
                         }
@@ -104,7 +102,7 @@ namespace Client
                     {
                         log($"ReceiveChat message. The chat message is {receiveChatMsg.Msg}");
 
-                        client_.AppendToChat($"{receiveChatMsg.Sender}:{receiveChatMsg.Msg}");                        
+                        client_.AppendToChat($"{receiveChatMsg.Sender}:{receiveChatMsg.Msg}");
                     }
                     break;
 
@@ -114,6 +112,13 @@ namespace Client
                         log($"GameLog message. The text is {gameLogMsg.Msg}");
 
                         client_.AppendToGameLog($"{gameLogMsg.Msg}");
+                    }
+                    break;
+
+                case CommMessage.MessageType.CommunicationError:
+                    if (msg is CommunicationErrorMessage commErrorMsg)
+                    {
+                        log($"Communication error: {commErrorMsg.Error}");
                     }
                     break;
 

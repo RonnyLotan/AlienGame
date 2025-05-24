@@ -107,9 +107,9 @@ namespace Server
             trd.Start();
         }
 
-        public async void Stop(String reason)
+        public void Stop(String reason)
         {
-            await logger_.Log($"Closing the lobby: {reason}, Game State: {this}");
+            _ = logger_.Log($"Closing the lobby: {reason}, Game State: {this}");
             cts_.Cancel();
         }
 

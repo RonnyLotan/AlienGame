@@ -23,17 +23,37 @@ namespace Client
         public bool IsInLobby = false;
         public bool IsInGame = false;
 
-        public string? Name { get; set; }
+        private string? name_;
+        public string Name {
+            get
+            {
+                if (name_ == null)
+                {
+                    throw new InvalidOperationException("Accessing Name before it was initialized");
+                }
 
-        internal UserData(int id, TcpClient socket, string aesKey, Logger logger)
+                return name_;
+            }
+            private set
+            {
+                name_ = value;
+            }
+        }
+
+        internal UserData(int id, TcpClient socket, NetworkStream nws, string aesKey, Logger logger)
         {
             Id = id;
             Socket = socket;
 
-            nws_ = Socket.GetStream();
+            logger.Log("Constructing UserData");
+            nws_ = nws;
+
             Reader = new MyReader(aesKey, nws_);
-            Writer = new MyWriter(aesKey, nws_); 
+            Writer = new MyWriter(aesKey, nws_);
+
+            logger.Log($"Constructing UserData - creating Reader and writer with AesKey: {aesKey}");
+
             Logger = logger;
-        }       
+        }
     }
 }
