@@ -19,10 +19,10 @@ namespace Shared
             {
                 try
                 {
-                    string privateKey = Convert.ToBase64String(rsa.ExportCspBlob(true));
-                    string publicKey = Convert.ToBase64String(rsa.ExportCspBlob(false));
+                    var privateKeyStr = Convert.ToBase64String(rsa.ExportCspBlob(true));
+                    var publicKeyStr = Convert.ToBase64String(rsa.ExportCspBlob(false));
 
-                    return (privateKey, publicKey);
+                    return (privateKeyStr, publicKeyStr);
                 }
                 finally
                 {

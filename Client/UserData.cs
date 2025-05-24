@@ -55,5 +55,10 @@ namespace Client
 
             Logger = logger;
         }
+
+        public override string ToString()
+        {
+            return $"#{Id}|{name_ ?? ""}";
+        }
     }
 }

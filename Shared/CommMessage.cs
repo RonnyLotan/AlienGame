@@ -1,4 +1,5 @@
 ﻿using System.Drawing;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
@@ -74,8 +75,9 @@ namespace Shared
 
             if (splitMsg.Length != 2 || string.IsNullOrEmpty(splitMsg[0]))
                 return ParseErrorMessage.Create(rawMessage);
-            
-            if (Enum.TryParse<MessageType>(splitMsg[0], out MessageType msgType))
+
+            var type = Regex.Replace(splitMsg[0], @"[^a-zA-Z]", "");
+            if (Enum.TryParse(type, out MessageType msgType))
             {
                 var msgBody = splitMsg[1];
                 switch (msgType)
@@ -96,6 +98,8 @@ namespace Shared
                     case MessageType.BroadcastChat: return BroadcastChatServerMessage.FromText(msgBody);
                     case MessageType.OfferCard: return OfferCardServerMessage.FromText(msgBody);
                     case MessageType.LoginRequest: return LoginRequestServerMessage.FromText(msgBody);
+                    case MessageType.RegisterRequest: return RegisterRequestServerMessage.FromText(msgBody);
+                    case MessageType.JoinLobbyRequest: return JoinLobbyRequestServerMessage.FromText(msgBody);
                     case MessageType.CreateLobbyRequest: return CreateLobbyRequestServerMessage.FromText(msgBody);                        
 
                     case MessageType.ResponseToOffer: return ResponseToOfferMessage.FromText(msgBody);
@@ -363,7 +367,7 @@ namespace Shared
     // Message received from server after a user registration attempt (Success,Fail)
     public class RegisterResponseMessage : ResponseMessage
     {
-        private static MessageType type_ = MessageType.RegisterRequest;
+        private static MessageType type_ = MessageType.Register;
 
         public static CommMessage FromText(string msgBody)
         {
@@ -804,7 +808,7 @@ namespace Shared
             var key = splitMsg[0];
 
             if (int.TryParse(splitMsg[1], out int id))
-                return Create(msgBody, id);
+                return Create(key, id);
             
             return MessageBodyErrorMessage.Create(type_, msgBody);
         }

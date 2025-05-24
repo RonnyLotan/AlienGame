@@ -23,7 +23,7 @@ namespace Server
         {
             user_ = new UserData(socket, Interlocked.Increment(ref sockCount));
 
-            logger_ = new Logger($"Server Client#{User.Id}");
+            logger_ = new Logger($"Server Client#{User}");
             _ = logger_.Log($"In ClientHandler constructor");
 
             server_ = server;
@@ -41,7 +41,7 @@ namespace Server
         {
             try
             {
-                _ = logger_.Log($"Client #{User.Id} connected, awaiting authentication...");
+                _ = logger_.Log($"Client {User} connected, awaiting authentication...");
                 server_.AddClient(this);
 
                 if (server_.PublicKey is not null)
@@ -50,11 +50,11 @@ namespace Server
                     User.Writer.WriteMessage(msg, false);
                 }
 
-                _ = logger_.Log($"Entering message loop for user {User.Id}");
+                _ = logger_.Log($"Entering message loop for user {User}");
                 CommMessage? message;
                 while (User.Reader.ReadMessage(out message))
                 {
-                    _ = logger_.Log($"Received message from user #{User.Id}: {message}");
+                    _ = logger_.Log($"Received message from user {User}: {message!.Text}");
 
                     if (message is not null)
                     {
@@ -64,24 +64,18 @@ namespace Server
                     // If the user enterd a lobby it no longer needs this thread to communicate with the server
                     if (User.InLobby)
                     {
-                        _ = logger_.Log($"Exiting message loop for user {User.Id}");
+                        _ = logger_.Log($"Exiting message loop for user {User}");
                         break;
-
                     }
                 }
 
-                _ = logger_.Log($"User #{User.Id}|{User.Name} has entered lobby");
+                _ = logger_.Log($"User {User} has entered lobby");
             }
             catch (Exception ex)
             {
-                _ = logger_.Log($"User #{User.Id} had error: {ex.Message}. Disconnecting!");
+                _ = logger_.Log($"User {User} had error: {ex.Message}. Disconnecting!");
                 Disconnect();
-            }
-            finally
-            {
-                _ = logger_.Log($"User #{User.Id} had unknown error. Disconnecting!");
-                Disconnect();
-            }
+            }            
         }
 
         void Disconnect()
@@ -91,7 +85,7 @@ namespace Server
 
         private void HandleParsedMessage(CommMessage msg)
         {
-            _ = logger_.Log($"ClientHandler: Received message {msg}");
+            _ = logger_.Log($"ClientHandler: Received message {msg.Text}");
 
             switch (msg.Type)
             {
@@ -113,13 +107,13 @@ namespace Server
                         {
                             var response = LoginResponseMessage.Create(false, "Encryption has not been established. Please send public key");
                             User.Writer.WriteMessage(response);
-                            _ = logger_.Log($"User #{User.Id}|{User.Name} has not established encryption");
+                            _ = logger_.Log($"User {User} has not established encryption");
                         }
                         else if (server_.IsClientLoggedIn(loginMsg.UserName))
                         {
                             var response = LoginResponseMessage.Create(false, "This user is already logged in");
                             User.Writer.WriteMessage(response);
-                            _ = logger_.Log($"User #{User.Id}|{User.Name} has already logged in");
+                            _ = logger_.Log($"User {User} has already logged in");
                         }
                         else
                         {
@@ -132,7 +126,7 @@ namespace Server
                             {
                                 var reply = LoginResponseMessage.Create(false, $"Login failed with error - {ex.Message}");
                                 User.Writer.WriteMessage(reply);
-                                _ = logger_.Log($"User #{User.Id} failed to logged in with error: {ex.Message}");
+                                _ = logger_.Log($"User {User} failed to logged in with error: {ex.Message}");
                                 return;
                             }
 
@@ -143,14 +137,14 @@ namespace Server
                                 var reply = LoginResponseMessage.Create(true, null);
                                 User.Writer.WriteMessage(reply);
 
-                                _ = logger_.Log($"User #{User.Id}|{user.Name} has logged in successfully");
+                                _ = logger_.Log($"User {User}|{user.Name} has logged in successfully");
                             }
                             else
                             {
                                 string reason = user is null ? "Wrong user name" : "Wrong password";
                                 var reply = LoginResponseMessage.Create(false, reason);
                                 User.Writer.WriteMessage(reply);
-                                _ = logger_.Log($"User #{User.Id} failed to log in: {reason}");
+                                _ = logger_.Log($"User {User} failed to log in: {reason}");
                             }
                         }
                     }
@@ -199,7 +193,7 @@ namespace Server
                         {
                             var reply = JoinLobbyResponseMessage.Create(false, $"Failed to join lobby with error - {ex.Message}");
                             User.Writer.WriteMessage(reply);
-                            _ = logger_.Log($"User #{User.Id} failed to join lobby {joinLobbyMsg.Name} with error: {ex.Message}");
+                            _ = logger_.Log($"User {User} failed to join lobby {joinLobbyMsg.Name} with error: {ex.Message}");
                             return;
                         }
 
@@ -213,14 +207,14 @@ namespace Server
                             var reply = JoinLobbyResponseMessage.Create(true, null);
                             User.Writer.WriteMessage(reply);
 
-                            _ = logger_.Log($"User #{User.Id}|{User.Name} has joined lobby {lobby.Name} successfully");
+                            _ = logger_.Log($"User {User}|{User.Name} has joined lobby {lobby.Name} successfully");
                         }
                         else
                         {
                             string reason = lobby is null ? "Unknown lobby name" : "Wrong password";
                             var reply = JoinLobbyResponseMessage.Create(false, reason);
                             User.Writer.WriteMessage(reply);
-                            _ = logger_.Log($"User #{User.Id}|{User.Name} failed to join lobby {joinLobbyMsg.Name}: {reason}");
+                            _ = logger_.Log($"User {User} failed to join lobby {joinLobbyMsg.Name}: {reason}");
                         }                        
                     }
                     break;
@@ -264,7 +258,6 @@ namespace Server
                     break;
             }
         }
-
         internal void EnterLobby(Lobby lobby)
         {
             lock (User)

@@ -38,7 +38,7 @@ namespace Server
         public string? HashedPassword { get; set; }
         public string? PublicKey { get; set; }
 
-        public bool LoggedIn { get => Name is not null; }
+        public bool LoggedIn { get => name_ is not null; }
 
         public Lobby? Lobby { get; set; }
         public bool InLobby { get => Lobby is not null;  }
@@ -61,7 +61,7 @@ namespace Server
 
         public override string ToString()
         {
-            return $"#{Id}|{Name}";
+            return $"#{Id}|{name_ ?? ""}";
         }
 
         public void Close()

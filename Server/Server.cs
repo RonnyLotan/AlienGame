@@ -81,7 +81,7 @@ namespace Server
         {
             lock (Lobbies)
             {
-                _ = Logger.Log($"Create a new lobby: {name} and add user: {guest.User} too lobby");
+                _ = Logger.Log($"Create a new lobby: {name} and add user: {guest.User} to lobby");
 
                 var lobby = new Lobby(name, guest, this);
                 guest.EnterLobby(lobby);
@@ -138,7 +138,6 @@ namespace Server
 
                         // Accept new client
                         var handler = new ClientHandler(listener.AcceptTcpClient(), this);
-                        lock (clients_) {  clients_.Add(handler); }
                         
                         _ = Logger.Log($"New client connected: #{handler.Id}");
 

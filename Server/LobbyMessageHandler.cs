@@ -20,7 +20,7 @@ namespace Server
 
         public void Handle(CommMessage msg, UserData sender)
         {
-            _ = logger_.Log($"GameMessageHandler: Received message {msg} from {sender}");
+            _ = logger_.Log($"LobbyMessageHandler: Received message {msg} from {sender}");
 
             if (msg.Type == CommMessage.MessageType.BroadcastChat && (msg is BroadcastChatServerMessage broadcastChatMsg))
             {
@@ -40,9 +40,14 @@ namespace Server
             }
             else if (msg.Type == CommMessage.MessageType.StartGame && (msg is StartGameServerMessage startGameMsg))
             {
+                _ = logger_.Log($"LobbyMessageHandler: Received Start Game messagefrom {sender}");
+
                 // Start the game only if the host requested it. Otherwise do nothing.
                 if (sender.Name == lobby_.Host)
+                {
                     lobby_.StartGame();
+                    _ = logger_.Log($"LobbyMessageHandler: Starting a game");
+                }
 
                 return;
             }

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Net.Sockets;
+using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -68,15 +69,23 @@ namespace Server
             lock (UpdateLock)
             {
                 foreach (var client in guestInfo_.Values)
-                    players.Add(new Player(client.User.Id, client.User.Name!));
+                {
+                    var player = new Player(client.User.Id, client.User.Name!);
+                    players.Add(player);
+                    _ = logger_.Log($"StartGame - add player {player} to the game");
+                }
 
                 game_ = new Game(Players);
+                _ = logger_.Log($"StartGame - created a new game");
             }
 
+            _ = logger_.Log($"StartGame - dealing the cards");
             foreach (var p in Players)
             {
                 var msg = DealCardsClientMessage.Create(p.Cards);
                 WriteUser(p.Id, msg);
+
+                _ = logger_.Log($"StartGame - sent cards to player: {p}");
             }
         }
 
@@ -115,6 +124,7 @@ namespace Server
 
         public void WriteUser(int id, CommMessage message)
         {
+            _ = logger_.Log($"WriteUser - sending user #{id}: {message}");
             lock (UpdateLock)
             {
                 guestInfo_[id].User.Writer.WriteMessage(message);
@@ -170,6 +180,7 @@ namespace Server
         private void MessageLoop(CancellationToken token)
         {
             var messageHandler = new LobbyMessageHandler(this, logger_);
+            logger_.Log($"Starting message loop");
 
             while (!token.IsCancellationRequested)
             {
@@ -193,6 +204,7 @@ namespace Server
                     }
 
                     var user = client.User;
+                    logger_.Log($"Received message from user {user}");
                     try
                     {
                         CommMessage? message; 
@@ -200,6 +212,7 @@ namespace Server
                         {
                             if (message is not null)
                             {
+                                logger_.Log($"MessageLoop - received message: {message.Text}");
                                 messageHandler.Handle(message, user);
                             }
                         }

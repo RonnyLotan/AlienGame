@@ -151,7 +151,7 @@ namespace Client
                             log($"User clicked the Register button");
                             using (var registerForm = new RegisterForm())
                             {
-                                if (loginForm.ShowDialog() == DialogResult.OK)
+                                if (registerForm.ShowDialog() == DialogResult.OK)
                                 {
                                     log($"User completed registration form");
                                     var username = registerForm.Username;
@@ -208,7 +208,7 @@ namespace Client
                         }
                         else
                         {
-                            log($"User completed login form");
+                            log($"User completed join lobby form");
                             var lobbyName = joinLobbyForm.LobbyName;
                             var entryCode = joinLobbyForm.EntryCode;
 
@@ -241,7 +241,7 @@ namespace Client
             }
             _ = logger.Log("ClientLoop - Client connected to server");
 
-            if (EstablishConnection(client!, token, logger))
+            if (!EstablishConnection(client!, token, logger))
             {
                 MessageBox.Show("Failed to establish connection!!! Quitting", "Fatal Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 client.Close();
@@ -252,7 +252,7 @@ namespace Client
             logger = User.Logger;
             logger.Log($"ClientLoop - got encryption keys");
 
-            if (Login(token))
+            if (!Login(token))
             {
                 MessageBox.Show("Failed to log in!!! Quitting", "Fatal Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 client.Close();
@@ -261,7 +261,7 @@ namespace Client
                 return false;
             }
 
-            if (EnterLobby(User, token))
+            if (!EnterLobby(User, token))
             {
                 MessageBox.Show("Failed to enter lobby!!! Quitting", "Fatal Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 client.Close();
@@ -300,7 +300,7 @@ namespace Client
             CommMessage? message;
             while (!token.IsCancellationRequested && User.Reader.ReadMessage(out message))
             {
-                log($"Login - Inside login/registration loop. Got message: {message}");
+                log($"Login - Inside login/registration loop. Got message: {message!.Text}");
                 if (message!.Type == CommMessage.MessageType.Login && message is LoginResponseMessage loginResponseMsg)
                 {
                     log($"Login - recieved response to login attempt - {loginResponseMsg.Text}");
@@ -515,8 +515,6 @@ namespace Client
                         logger.Log($"EstablishConnection - failed create UserData: {e.Message}");
                         return false;
                     }
-
-                    return true;
                 }
                 else
                     logger.Log($"EstablishConnection - failed to get Id or public key");
