@@ -1,6 +1,7 @@
 ﻿using Shared;
 using System;
 using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -8,6 +9,7 @@ class Program
 {
     static string filePath = Logger.LogFilePath;
     static object consoleLock = new();
+    static long lastPosition = 0;
 
     static void Main()
     {
@@ -32,22 +34,39 @@ class Program
     {
         var watcher = new FileSystemWatcher(Path.GetDirectoryName(filePath));
         watcher.Filter = Path.GetFileName(filePath);
-        watcher.NotifyFilter = NotifyFilters.LastWrite;
+        watcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size;
         watcher.EnableRaisingEvents = true;
 
-        watcher.Changed += (s, e) =>
-        {
-            lock (consoleLock)
-            {
-                Console.WriteLine($"\n[File updated at {DateTime.Now:T}]");
-                DisplayFileContent();
-            }
-        };
+        watcher.Changed += OnChanged;
+    }
 
-        // Initial display
-        lock (consoleLock)
+    private static void OnChanged(object source, FileSystemEventArgs e)
+    {
+        doOnChange();
+    }
+
+    private static void doOnChange()
+    { 
+        try
         {
-            DisplayFileContent();
+            using (var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            {
+                stream.Seek(lastPosition, SeekOrigin.Begin);
+                using (var reader = new StreamReader(stream, Encoding.UTF8))
+                {
+                    string line;
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        Console.WriteLine($"[New Line] {line}");
+                    }
+
+                    lastPosition = stream.Position;
+                }
+            }
+        }
+        catch (IOException ex)
+        {
+            Console.WriteLine($"[Error reading file] {ex.Message}");
         }
     }
 
@@ -62,7 +81,8 @@ class Program
                 {
                     Console.Clear();
                     Console.WriteLine("[Manual reload with Ctrl+R]");
-                    DisplayFileContent();
+                    lastPosition = 0;
+                    doOnChange();
                 }
             }
         }

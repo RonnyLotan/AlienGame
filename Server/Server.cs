@@ -79,13 +79,15 @@ namespace Server
 
         public void OpenLobby(string name, ClientHandler guest)
         {
+            _ = Logger.Log($"Create a new lobby: {name} and add user: {guest.User} to lobby");
+            Lobby lobby;
             lock (Lobbies)
             {
-                _ = Logger.Log($"Create a new lobby: {name} and add user: {guest.User} to lobby");
-
-                var lobby = new Lobby(name, guest, this);
-                guest.EnterLobby(lobby);
+                lobby = new Lobby(name, guest, this);
+                Lobbies.Add(name, lobby);                
             }
+
+            guest.EnterLobby(lobby);
         }
 
         public void AddClient(ClientHandler client)

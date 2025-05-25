@@ -115,6 +115,13 @@ namespace Client
                     }
                     break;
 
+                case CommMessage.MessageType.CanStartGame:
+                    if (msg is CanStartGameClientMessage canStartMsg)
+                    {
+                        client_.EnableStartGame();
+                    }
+                    break;
+
                 case CommMessage.MessageType.CommunicationError:
                     if (msg is CommunicationErrorMessage commErrorMsg)
                     {

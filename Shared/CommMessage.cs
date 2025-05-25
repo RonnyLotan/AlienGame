@@ -18,11 +18,12 @@ namespace Shared
             ReceiveChat = 106,
             Login = 107,
             JoinLobby = 108,
-            GameLog = 109,   
+            GameLog = 109,
             AesKey = 110,
             Register = 111,
             CreateLobby = 112,
-            
+            CanStartGame = 113,
+
             // Messages from clients to server
             BroadcastChat = 200,
             OfferCard = 201,
@@ -68,7 +69,7 @@ namespace Shared
 
             return Text;
         }
-       
+
         public static CommMessage FromText(string rawMessage, string? aesKey = null)
         {
             string[] splitMsg = rawMessage.Split('|');
@@ -82,8 +83,9 @@ namespace Shared
                 var msgBody = splitMsg[1];
                 switch (msgType)
                 {
+                    // Messages from server to clients
                     case MessageType.DealCards: return DealCardsClientMessage.FromText(msgBody);
-                    case MessageType.TakeCard:  return TakeCardClientMessage.FromText(msgBody);
+                    case MessageType.TakeCard: return TakeCardClientMessage.FromText(msgBody);
                     case MessageType.AcceptCard: return AcceptCardClientMessage.FromText(msgBody);
                     case MessageType.MakeOffer: return MakeOfferClientMessage.FromText(msgBody);
                     case MessageType.NotYourTurn: return NotYourTurnClientMessage.FromText(msgBody);
@@ -94,14 +96,18 @@ namespace Shared
                     case MessageType.Register: return RegisterResponseMessage.FromText(msgBody);
                     case MessageType.CreateLobby: return CreateLobbyResponseMessage.FromText(msgBody);
                     case MessageType.AesKey: return AesKeyMessage.FromText(msgBody);
+                    case MessageType.CanStartGame: return CanStartGameClientMessage.FromText(msgBody);
 
+                    // Messages from clients to server
                     case MessageType.BroadcastChat: return BroadcastChatServerMessage.FromText(msgBody);
                     case MessageType.OfferCard: return OfferCardServerMessage.FromText(msgBody);
                     case MessageType.LoginRequest: return LoginRequestServerMessage.FromText(msgBody);
                     case MessageType.RegisterRequest: return RegisterRequestServerMessage.FromText(msgBody);
                     case MessageType.JoinLobbyRequest: return JoinLobbyRequestServerMessage.FromText(msgBody);
-                    case MessageType.CreateLobbyRequest: return CreateLobbyRequestServerMessage.FromText(msgBody);                        
+                    case MessageType.CreateLobbyRequest: return CreateLobbyRequestServerMessage.FromText(msgBody);
+                    case MessageType.StartGame: return StartGameServerMessage.FromText(msgBody);
 
+                    // Messages for both directions
                     case MessageType.ResponseToOffer: return ResponseToOfferMessage.FromText(msgBody);
                     case MessageType.PublicKey: return PublicKeyMessage.FromText(msgBody);
 
@@ -143,7 +149,7 @@ namespace Shared
         {
             return new DealCardsClientMessage { CardList = cardList };
         }
-        
+
         public override MessageType Type => type_;
 
         public override string Text => base.Text + $"{string.Join(';', CardList)}";
@@ -158,7 +164,7 @@ namespace Shared
             Card = card;
         }
 
-        public override string Text => base.Text + $"{Card}";        
+        public override string Text => base.Text + $"{Card}";
 
         public Card Card { get; init; }
     }
@@ -170,7 +176,7 @@ namespace Shared
         public static CommMessage FromText(string msgBody)
         {
             if (Card.TryParse(msgBody, out Card? card) && card is not null)
-                return Create(card);            
+                return Create(card);
 
             return MessageBodyErrorMessage.Create(type_, msgBody);
         }
@@ -180,8 +186,8 @@ namespace Shared
             return new TakeCardClientMessage(card);
         }
 
-        private TakeCardClientMessage(Card card) : base(card) 
-        {            
+        private TakeCardClientMessage(Card card) : base(card)
+        {
         }
 
         public override MessageType Type => type_;
@@ -201,15 +207,15 @@ namespace Shared
             var cardName = splitMsg[0];
             var giver = splitMsg[1];
 
-            if (Card.TryParse(cardName, out Card? card) && card is not null)            
-                return Create(card, giver);            
+            if (Card.TryParse(cardName, out Card? card) && card is not null)
+                return Create(card, giver);
 
             return MessageBodyErrorMessage.Create(type_, msgBody);
         }
 
         public static AcceptCardClientMessage Create(Card card, string giver)
         {
-            return new AcceptCardClientMessage(card, giver );
+            return new AcceptCardClientMessage(card, giver);
         }
 
         private AcceptCardClientMessage(Card card, string giver) : base(card)
@@ -244,7 +250,7 @@ namespace Shared
         }
 
         public static MakeOfferClientMessage Create(int num, string receiver)
-        {  return new MakeOfferClientMessage(num, receiver); }
+        { return new MakeOfferClientMessage(num, receiver); }
 
         private MakeOfferClientMessage(int num, string receiver)
         {
@@ -280,21 +286,21 @@ namespace Shared
 
         public override MessageType Type => type_;
 
-        public override string Text => base.Text;        
-    }    
+        public override string Text => base.Text;
+    }
 
     // Message to let client know they are receiving a chat message    
     public class ReceiveChatClientMessage : CommMessage
     {
         private static MessageType type_ = MessageType.ReceiveChat;
-        
+
         public static CommMessage FromText(string msgBody)
         {
             string[] splitMsg = msgBody.Split(';');
 
             if (splitMsg.Length != 2 || string.IsNullOrEmpty(splitMsg[0]) || string.IsNullOrEmpty(splitMsg[1]))
                 return MessageBodyErrorMessage.Create(type_, msgBody);
-           
+
             return Create(splitMsg[0], splitMsg[1]);
         }
 
@@ -465,6 +471,28 @@ namespace Shared
         public override MessageType Type => type_;
     }
 
+    public class CanStartGameClientMessage : CommMessage
+    {
+        private static MessageType type_ = MessageType.CanStartGame;
+
+        public static CommMessage FromText(string msgBody)
+        {
+            return Create();
+        }
+
+        public static CanStartGameClientMessage Create()
+        {
+            return new CanStartGameClientMessage();
+        }
+
+        private CanStartGameClientMessage()
+        {
+        }
+
+        public override MessageType Type => type_;
+        public override string Text => base.Text;
+    }
+
     // Message sent by the server to update the game log at the clients
     // Message to let client know they are receiving a chat message    
     public class GameLogClientMessage : CommMessage
@@ -545,7 +573,7 @@ namespace Shared
         public override MessageType Type => type_;
 
         public override string Text => base.Text + Msg;
-        
+
         public string Msg { get; init; }
     }
 
@@ -567,7 +595,7 @@ namespace Shared
             return new OfferCardServerMessage(card);
         }
 
-        private OfferCardServerMessage(Card card) : base(card) 
+        private OfferCardServerMessage(Card card) : base(card)
         {
         }
 
@@ -628,7 +656,7 @@ namespace Shared
 
             var userName = splitMsg[0];
             var password = splitMsg[1];
-            var email = splitMsg[2];    
+            var email = splitMsg[2];
 
             return Create(userName, password, email);
         }
@@ -684,7 +712,7 @@ namespace Shared
             }
 
             var name = splitMsg[0];
-            var password = splitMsg[1];            
+            var password = splitMsg[1];
 
             return Create(name, password);
         }
@@ -740,17 +768,17 @@ namespace Shared
 
         public static CommMessage FromText(string msgBody)
         {
-            return Create();            
+            return Create();
         }
 
         public static StartGameServerMessage Create()
         { return new StartGameServerMessage(); }
 
         private StartGameServerMessage()
-        {            
+        {
         }
 
-        public override MessageType Type => type_;        
+        public override MessageType Type => type_;
     }
 
     //
@@ -769,7 +797,7 @@ namespace Shared
                 if (response == ResponseToCardOffer.Accept)
                     return Create(true);
                 else if (response == ResponseToCardOffer.Reject)
-                    return Create(false);                
+                    return Create(false);
             }
 
             return MessageBodyErrorMessage.Create(type_, msgBody);
@@ -785,7 +813,7 @@ namespace Shared
 
         public override MessageType Type => type_;
 
-        public override string Text => base.Text + $"{(Accept ? ResponseToCardOffer.Accept : ResponseToCardOffer.Reject) }";
+        public override string Text => base.Text + $"{(Accept ? ResponseToCardOffer.Accept : ResponseToCardOffer.Reject)}";
 
         public bool Accept { get; init; }
     }
@@ -809,7 +837,7 @@ namespace Shared
 
             if (int.TryParse(splitMsg[1], out int id))
                 return Create(key, id);
-            
+
             return MessageBodyErrorMessage.Create(type_, msgBody);
         }
 
@@ -914,7 +942,7 @@ namespace Shared
             return new UnrecognizedMessageTypeErrorMessage(type, msgBody);
         }
 
-        private UnrecognizedMessageTypeErrorMessage(string type, string msgBody) 
+        private UnrecognizedMessageTypeErrorMessage(string type, string msgBody)
         {
             unknownType_ = type;
             msgBody_ = msgBody;
@@ -940,7 +968,7 @@ namespace Shared
             if (splitMsg.Length != 2)
                 return MessageBodyErrorMessage.Create(type_, msgBody);
 
-            if (Enum.TryParse<MessageType>(splitMsg[0], out MessageType msgType))           
+            if (Enum.TryParse<MessageType>(splitMsg[0], out MessageType msgType))
                 return new MessageBodyErrorMessage(msgType, splitMsg[1]);
 
             return UnrecognizedMessageTypeErrorMessage.Create(splitMsg[0], splitMsg[1]);
@@ -951,7 +979,7 @@ namespace Shared
             return new MessageBodyErrorMessage(type, msgBody);
         }
 
-        private MessageBodyErrorMessage(MessageType type, string msgBody) 
+        private MessageBodyErrorMessage(MessageType type, string msgBody)
         {
             msgType_ = type;
             msgBody_ = msgBody;

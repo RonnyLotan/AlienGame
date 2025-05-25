@@ -33,7 +33,6 @@ namespace Server
 
         public void Start()
         {
-            User.Lobby = null;
             new Thread(() => client_trd_loop()) { IsBackground = true }.Start();
         }
        
@@ -247,6 +246,14 @@ namespace Server
                             User.Writer.WriteMessage(reply);
                             _ = logger_.Log($"Lobby {createLobbyMsg.Name} failed to create: wrong lobby data or lobby already exists - {createLobbyMsg.Text}");
                         }
+                    }
+                    break;
+
+                case CommMessage.MessageType.StartGame:
+                    if (msg is StartGameServerMessage canStartMsg)
+                    {
+                        _ = logger_.Log($"Received message to start the game");
+                        User.Lobby.StartGame();
                     }
                     break;
 

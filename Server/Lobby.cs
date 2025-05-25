@@ -12,6 +12,8 @@ namespace Server
 {
     public class Lobby
     {
+        static int MIN_NUMBER_OF_PLAYERS = 2;
+
         List<Player> Players;
         public string Name { get; set; }
         public string Host { get; set; }
@@ -23,17 +25,17 @@ namespace Server
         private Dictionary<int, ClientHandler> guestInfo_;
         private ClientHandler hostInfo_;
         private Server server_;
-        
+
         private Dictionary<Socket, ClientHandler> socketToClientDict_;
-        private List<Socket> Sockets { get => socketToClientDict_.Keys.ToList();  }
+        private List<Socket> Sockets { get => socketToClientDict_.Keys.ToList(); }
 
         private CancellationTokenSource cts_;
-        
+
         private Logger logger_;
 
         public readonly object UpdateLock = new object();
 
-        public Lobby(string name, ClientHandler host, Server server) 
+        public Lobby(string name, ClientHandler host, Server server)
         {
             Name = name;
             Players = new List<Player>();
@@ -45,13 +47,13 @@ namespace Server
             guestInfo_ = new Dictionary<int, ClientHandler>();
             socketToClientDict_ = new Dictionary<Socket, ClientHandler>();
 
-            AddGuest(host);
-
             cts_ = new CancellationTokenSource();
 
             logger_ = new Logger($"Lobby-{name}");
-            
+
             _ = logger_.Log($"Lobby is created");
+
+            AddGuest(host);
         }
 
         public List<UserData> getGuestUsers()
@@ -59,8 +61,8 @@ namespace Server
             lock (UpdateLock)
             {
                 return guestInfo_.Values.Select(p => p.User).ToList();
-                
-            } 
+
+            }
         }
 
         public void StartGame()
@@ -100,16 +102,37 @@ namespace Server
 
         public void AddGuest(ClientHandler guest)
         {
-            lock (UpdateLock) 
+            List<int> ids = new List<int>();
+            int cnt;
+            lock (UpdateLock)
             {
+                ids = guestInfo_.Keys.ToList();
+
                 guestInfo_.Add(guest.Id, guest);
                 socketToClientDict_.Add(guest.User.Socket.Client, guest);
+                _ = logger_.Log($"Guest added to lobby. {guestInfo_.Count} guests");
+
+                cnt = guestInfo_.Count;
+            }
+
+            var msg = GameLogClientMessage.Create($"AddGuest - User {guest.User.Name} has entered the lobby");
+
+            foreach (var i in ids)
+            {
+                WriteUser(i, msg);
+            }
+            _ = logger_.Log($"AddGuest - sent notification to all other guests");
+
+            if (cnt == MIN_NUMBER_OF_PLAYERS)
+            {
+                WriteUser(hostInfo_.Id, CanStartGameClientMessage.Create());
+                _ = logger_.Log($"AddGuest - notify host game can start");
             }
         }
 
         public void Start()
         {
-            _ = logger_.Log($"Starting the lobby thread"); 
+            _ = logger_.Log($"Starting the lobby thread");
 
             var trd = new Thread(() => MessageLoop(cts_.Token));
             trd.IsBackground = true;
@@ -130,13 +153,13 @@ namespace Server
                 guestInfo_[id].User.Writer.WriteMessage(message);
             }
         }
-        
+
         void HandleUserLeft(ClientHandler client, bool isError)
         {
             server_.DisconnectUser(client);
 
             void close_lobby(GameLogClientMessage msg)
-            {                
+            {
                 foreach (var c in guestInfo_.Values)
                 {
                     // Send the message to all guests in the lobby
@@ -146,7 +169,7 @@ namespace Server
                         c.Start();
                     }
                 }
-             
+
                 cts_.Cancel(true);
                 server_.PurgeLobby(this);
             }
@@ -158,10 +181,10 @@ namespace Server
                     // Send the message to all guests in the lobby
                     if (c.User.Name != Host)
                     {
-                        WriteUser(c.Id, msg);                            
+                        WriteUser(c.Id, msg);
                     }
                 }
-                
+
                 EndGame();
             }
 
@@ -170,7 +193,7 @@ namespace Server
                 var msg = GameLogClientMessage.Create($"The host {Host} has left the Loby {(isError ? "because of error" : "")}. Everyone must exit.");
                 close_lobby(msg);
             }
-            else 
+            else
             {
                 var msg = GameLogClientMessage.Create($"The host {Host} has left the Loby {(isError ? "because of error" : "")}. Everyone must exit.");
                 close_game(msg);
@@ -207,7 +230,7 @@ namespace Server
                     logger_.Log($"Received message from user {user}");
                     try
                     {
-                        CommMessage? message; 
+                        CommMessage? message;
                         if (client.User.Reader.ReadMessage(out message))
                         {
                             if (message is not null)

@@ -49,7 +49,7 @@ namespace Client
             nws_ = nws;
 
             Reader = new MyReader(aesKey, nws_);
-            Writer = new MyWriter(aesKey, nws_);
+            Writer = new MyWriter(aesKey, nws_);            
 
             logger.Log($"Constructing UserData - creating Reader and writer with AesKey: {aesKey}");
 

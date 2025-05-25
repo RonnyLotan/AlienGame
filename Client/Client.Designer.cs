@@ -44,6 +44,7 @@ namespace Client
             OfferAcceptButton = new Button();
             OfferRejectButton = new Button();
             ConnectionStatusLabel = new Label();
+            StartGameButton = new Button();
             ((System.ComponentModel.ISupportInitialize)CardPicture1).BeginInit();
             ((System.ComponentModel.ISupportInitialize)CardPicture2).BeginInit();
             ((System.ComponentModel.ISupportInitialize)CardPicture3).BeginInit();
@@ -60,6 +61,7 @@ namespace Client
             ConnectButton.Text = "Connect";
             ConnectButton.UseVisualStyleBackColor = true;
             ConnectButton.Click += ConnectButton_Click;
+            ConnectButton.Enabled = false;
             // 
             // JoinLobbyButton
             // 
@@ -70,6 +72,7 @@ namespace Client
             JoinLobbyButton.Text = "Join Lobby";
             JoinLobbyButton.UseVisualStyleBackColor = true;
             JoinLobbyButton.Click += JoinLobbyButton_Click;
+            JoinLobbyButton.Enabled = false;
             // 
             // CardPicture1
             // 
@@ -191,11 +194,23 @@ namespace Client
             ConnectionStatusLabel.TabIndex = 13;
             ConnectionStatusLabel.Text = "Disconnected";
             // 
+            // StartGameButton
+            // 
+            StartGameButton.Location = new Point(33, 107);
+            StartGameButton.Name = "StartGameButton";
+            StartGameButton.Size = new Size(109, 23);
+            StartGameButton.TabIndex = 14;
+            StartGameButton.Text = "Start Game";
+            StartGameButton.UseVisualStyleBackColor = true;
+            StartGameButton.Click += StartGameButton_Click;
+            StartGameButton.Enabled = false;
+            // 
             // Client
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(1033, 531);
+            Controls.Add(StartGameButton);
             Controls.Add(ConnectionStatusLabel);
             Controls.Add(OfferRejectButton);
             Controls.Add(OfferAcceptButton);
@@ -238,5 +253,6 @@ namespace Client
         private Button OfferAcceptButton;
         private Button OfferRejectButton;
         private Label ConnectionStatusLabel;
+        private Button StartGameButton;
     }
 }

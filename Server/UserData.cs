@@ -40,8 +40,23 @@ namespace Server
 
         public bool LoggedIn { get => name_ is not null; }
 
-        public Lobby? Lobby { get; set; }
-        public bool InLobby { get => Lobby is not null;  }
+        private Lobby? lobby_;
+        public Lobby Lobby {
+            get
+            {
+                if (lobby_ == null)
+                {
+                    throw new InvalidOperationException("Accessing Name before it was initialized");
+                }
+
+                return lobby_;
+            }
+            set
+            {
+                lobby_ = value;
+            }
+        }
+        public bool InLobby { get => lobby_ is not null;  }
 
         public UserData(TcpClient socket, int id)
         {
@@ -54,7 +69,7 @@ namespace Server
 
             HashedPassword = null;
             PublicKey = null;
-            Lobby = null;
+            lobby_ = null;
 
             Id = id;
         }        

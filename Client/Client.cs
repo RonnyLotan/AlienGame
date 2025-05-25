@@ -367,13 +367,8 @@ namespace Client
         {
             log($"Prepare UI for enterring loby");
             GUI.InvokeControl(JoinLobbyButton, () => { JoinLobbyButton.Enabled = true; });
-            GUI.InvokeControl(GameLogTextBox, () =>
-            {
-                GameLogTextBox.AppendText($"Please enter existing lobby or create new one\n");
-                GameLogTextBox.SelectionStart = GameLogTextBox.Text.Length;
-                GameLogTextBox.ScrollToCaret();
-            });
-
+            GUI.AppendLine($"Please enter existing lobby or create new one\n", GameLogTextBox);
+            
             // Wait for login to complete
             while (!token.IsCancellationRequested)
             {
@@ -504,7 +499,7 @@ namespace Client
                 logger.Log($"EstablishConnection - left AES loop");
 
                 if (aesKey is not null)
-                {                    
+                {
                     try
                     {
                         User = new UserData(myId.Value, client, nws, aesKey, logger);
@@ -523,6 +518,12 @@ namespace Client
                 logger.Log($"EstablishConnection - failed to get Id or public key");
 
             return false;
+        }
+
+        internal void EnableStartGame()
+        {
+            User.Logger.Log($"EnableStartGame - activate StartGame button");
+            GUI.InvokeControl(StartGameButton, () => { StartGameButton.Enabled = true; });
         }
 
         public void DisplayCards(List<Card> cards)
@@ -664,6 +665,15 @@ namespace Client
                     }
                 }
             }
+        }
+
+        private void StartGameButton_Click(object sender, EventArgs e)
+        {
+            var response = StartGameServerMessage.Create();
+            User.Writer.WriteMessage(response);
+
+            log($"Send Start Game message to server");
+
         }
     }
 }
