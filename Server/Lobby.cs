@@ -14,7 +14,6 @@ namespace Server
     {
         static int MIN_NUMBER_OF_PLAYERS = 2;
 
-        List<Player> Players;
         public string Name { get; set; }
         public string Host { get; set; }
 
@@ -35,11 +34,15 @@ namespace Server
 
         public readonly object UpdateLock = new object();
 
+        public override string ToString()
+        {
+            return $"{Name}|{Host}|{guestInfo_.Count} guests|{(GameInProgress ? Game : null)}";
+        }
+
         public Lobby(string name, ClientHandler host, Server server)
         {
             Name = name;
-            Players = new List<Player>();
-
+            
             Host = host.User.Name!;
             hostInfo_ = host;
             server_ = server;
@@ -77,12 +80,12 @@ namespace Server
                     _ = logger_.Log($"StartGame - add player {player} to the game");
                 }
 
-                game_ = new Game(Players);
+                game_ = new Game(players);
                 _ = logger_.Log($"StartGame - created a new game");
             }
 
             _ = logger_.Log($"StartGame - dealing the cards");
-            foreach (var p in Players)
+            foreach (var p in players)
             {
                 var msg = DealCardsClientMessage.Create(p.Cards);
                 WriteUser(p.Id, msg);
@@ -95,7 +98,6 @@ namespace Server
         {
             lock (UpdateLock)
             {
-                Players.Clear();
                 game_ = null;
             }
         }
@@ -115,7 +117,7 @@ namespace Server
                 cnt = guestInfo_.Count;
             }
 
-            var msg = GameLogClientMessage.Create($"AddGuest - User {guest.User.Name} has entered the lobby");
+            var msg = GameLogClientMessage.Create($"{guest.User.Name} has entered the lobby");
 
             foreach (var i in ids)
             {
@@ -147,7 +149,7 @@ namespace Server
 
         public void WriteUser(int id, CommMessage message)
         {
-            _ = logger_.Log($"WriteUser - sending user #{id}: {message}");
+            _ = logger_.Log($"WriteUser - sending user #{id}: {message.Text}");
             lock (UpdateLock)
             {
                 guestInfo_[id].User.Writer.WriteMessage(message);

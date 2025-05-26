@@ -571,7 +571,7 @@ namespace Client
         public void AppendToGameLog(string text)
         {
             log($"Adding text {text} to GameLog");
-            GUI.AppendLine(text, ChatBox);
+            GUI.AppendLine(text, GameLogTextBox);
         }
 
         public void UpdateStatus(string text)

@@ -50,7 +50,7 @@ namespace Server
             }
         }
 
-        public bool JoinLobby(string name, ClientHandler guest)
+        public bool JoinLobby(string name, ClientHandler guest, out string? reason)
         {
             _ = Logger.Log($"Trying to add user: {guest.User} to lobby: {name}");
             lock (Lobbies)
@@ -65,13 +65,20 @@ namespace Server
 
                         _ = Logger.Log($"User: {guest.User} added to lobby: {name}");
 
+                        reason = null;
                         return true;
                     }
                     else
-                        _ = Logger.Log($"Failed to add user: {guest.User} to lobby: {name} - game in progress");
+                    {
+                        reason = "game in progress";
+                        _ = Logger.Log($"Failed to add user: {guest.User} to lobby: {lobby} - {reason}");
+                    }
                 }
                 else
-                    _ = Logger.Log($"Failed to add user: {guest.User} to lobby: {name} - lobby does not exist");
+                {
+                    reason = "lobby is not open";
+                    _ = Logger.Log($"Failed to add user: {guest.User} to lobby: {lobby} - {reason}");
+                }
             }
 
             return false;
@@ -84,7 +91,8 @@ namespace Server
             lock (Lobbies)
             {
                 lobby = new Lobby(name, guest, this);
-                Lobbies.Add(name, lobby);                
+                Lobbies.Add(name, lobby); 
+                lobby.Start();
             }
 
             guest.EnterLobby(lobby);

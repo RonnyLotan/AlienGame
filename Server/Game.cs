@@ -64,10 +64,12 @@ namespace Server
         private void DealCards()
         {
             var values = Card.Animal.GetValues(typeof(Card.Animal)).Cast<Card.Animal>().ToList();
-            var result = new List<Card.Animal>(values.Count * NumCardsPerPlayer + 1);
+
+            var N = Players.Count;
+            var result = new List<Card.Animal>(N * NumCardsPerPlayer + 1);
 
             // Add each enum value n times
-            for (int j = 1; j <= Players.Count; j++)
+            for (int j = 1; j <= N; j++)
             {
                 var val = values[j];
                 for (int k = 0; k < NumCardsPerPlayer; k++)
@@ -80,13 +82,17 @@ namespace Server
             Random rng = new Random();
             result = result.OrderBy(_ => rng.Next()).ToList();
 
-            int n = NumCardsPerPlayer + 1;
-            int i = 0;
+            // Deal the cards to the players
+            var n = NumCardsPerPlayer + 1;
+            var i = 0;
             foreach (var p in Players)
             {
                 var cards = new List<Card>();
-                for (int j = 0; j < n; i++)
-                    cards[j] = new Card(result[i++]);
+                for (int j = 0; j < n; j++)
+                {
+                    cards.Add(new Card(result[i]));
+                    i++;
+                }
                 
                 p.Initialize(cards);
 

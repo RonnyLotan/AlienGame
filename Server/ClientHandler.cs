@@ -198,15 +198,20 @@ namespace Server
 
                         if (lobby != null && lobby.HashedEntryCode == Encryption.ComputeHash(joinLobbyMsg.EntryCode, lobby.Salt))
                         {
+                            var success = true;
+                            string? reason = null;
                             if (lobby.Host == User.Name)
                                 server_.OpenLobby(lobby.Name, this);
                             else
-                                server_.JoinLobby(lobby.Name, this);
+                                success = server_.JoinLobby(lobby.Name, this, out reason);
 
-                            var reply = JoinLobbyResponseMessage.Create(true, null);
+                            var reply = JoinLobbyResponseMessage.Create(success, reason);
                             User.Writer.WriteMessage(reply);
 
-                            _ = logger_.Log($"User {User}|{User.Name} has joined lobby {lobby.Name} successfully");
+                            if (success)
+                                _ = logger_.Log($"User {User} has joined lobby {lobby} successfully");
+                            else
+                                _ = logger_.Log($"User {User} failed to join lobby {lobby}");
                         }
                         else
                         {

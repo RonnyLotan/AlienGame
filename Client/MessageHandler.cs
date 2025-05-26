@@ -26,7 +26,7 @@ namespace Client
 
         public void Handle(CommMessage msg)
         {
-            log($"ClientMessageHandler: Received message {msg}");
+            log($"MessageHandler: Received message {msg.Text}");
 
             switch (msg.Type)
             {
@@ -126,6 +126,13 @@ namespace Client
                     if (msg is CommunicationErrorMessage commErrorMsg)
                     {
                         log($"Communication error: {commErrorMsg.Error}");
+                    }
+                    break;
+
+                case CommMessage.MessageType.MessageBodyError:
+                    if (msg is MessageBodyErrorMessage bodyErrorMsg)
+                    {
+                        log($"Message body error: Type:{bodyErrorMsg.MsgType} Body:{bodyErrorMsg.MsgBody}");
                     }
                     break;
 

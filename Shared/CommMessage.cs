@@ -133,10 +133,10 @@ namespace Shared
             if (splitMsg.Length < 4 || splitMsg.Length > 5)
                 return MessageBodyErrorMessage.Create(type_, msgBody);
 
-            var cardList = new List<Card>();
+            var cardList = new List<Card>(splitMsg.Length);
             foreach (string c in splitMsg)
             {
-                if (Card.TryParse(msgBody, out Card? card) && card is not null)
+                if (Card.TryParse(c, out Card? card) && card is not null)
                     cardList.Add(card);
                 else
                     return MessageBodyErrorMessage.Create(type_, msgBody);
@@ -981,15 +981,15 @@ namespace Shared
 
         private MessageBodyErrorMessage(MessageType type, string msgBody)
         {
-            msgType_ = type;
-            msgBody_ = msgBody;
+            MsgType = type;
+            MsgBody = msgBody;
         }
         public override MessageType Type => type_;
 
-        public override string Text => base.Text + $"{msgType_};{msgBody_}";
+        public override string Text => base.Text + $"{MsgType};{MsgBody}";
 
-        private MessageType msgType_;
-        private string msgBody_;
+        public MessageType MsgType;
+        public string MsgBody;
     }
 
     // Message to report a parsing error of the received message
