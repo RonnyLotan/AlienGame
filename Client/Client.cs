@@ -80,11 +80,13 @@ namespace Client
 
             GUI.InvokeControl(OfferAcceptButton, () =>
             {
+                OfferAcceptButton.Visible = false;
                 OfferAcceptButton.Enabled = false;
             });
 
             GUI.InvokeControl(OfferRejectButton, () =>
             {
+                OfferRejectButton.Visible = false;
                 OfferRejectButton.Enabled = false;
             });
 
@@ -99,8 +101,6 @@ namespace Client
                 {
                     pictureBox.Enabled = true;
                 });
-
-                UpdateStatus("Make an offer");
             }
 
             foreach (int i in rejectedCardIndices)
@@ -111,30 +111,51 @@ namespace Client
                 });
             }
 
+            UpdateStatus("Make an offer");
+
             GUI.InvokeControl(OfferAcceptButton, () =>
             {
+                OfferAcceptButton.Visible = false;
                 OfferAcceptButton.Enabled = false;
             });
 
             GUI.InvokeControl(OfferRejectButton, () =>
             {
+                OfferRejectButton.Visible = false;
                 OfferRejectButton.Enabled = false;
             });
         }
 
-        public void RespondToOffer()
+        public void ActivateAwaitOfferMode()
         {
             GUI.InvokeControl(OfferAcceptButton, () =>
             {
+                OfferAcceptButton.Visible = true;
+                OfferAcceptButton.Enabled = false;
+            });
+
+            GUI.InvokeControl(OfferRejectButton, () =>
+            {
+                OfferRejectButton.Visible = true;
+                OfferRejectButton.Enabled = false;
+            });
+
+            UpdateStatus($"Waiting to receive #{Game.NumRejections + 1} offer from {Game.GiverName}");
+        }
+
+        public void ActivateNeedToReplyMode()
+        {
+            GUI.InvokeControl(OfferAcceptButton, () =>
+            {
+                OfferAcceptButton.Visible = true;
                 OfferAcceptButton.Enabled = true;
             });
 
             GUI.InvokeControl(OfferRejectButton, () =>
             {
+                OfferRejectButton.Visible = true;
                 OfferRejectButton.Enabled = true;
-            });
-
-            UpdateStatus("Respond to offer");
+            });            
         }
 
         private void ConnectButton_Click(object sender, EventArgs e)
@@ -292,7 +313,7 @@ namespace Client
             log($"Login - Prepare UI for login");
 
             GUI.InvokeControl(ConnectButton, () => { ConnectButton.Enabled = true; });
-            GUI.AppendLine($"Please log in or register\n", GameLogTextBox);
+            GUI.AppendText($"Please log in or register", GameLogTextBox, false, true);
 
             // Wait for login to complete
             log($"Login - done preparing UI for login");
@@ -367,8 +388,8 @@ namespace Client
         {
             log($"Prepare UI for enterring loby");
             GUI.InvokeControl(JoinLobbyButton, () => { JoinLobbyButton.Enabled = true; });
-            GUI.AppendLine($"Please enter existing lobby or create new one\n", GameLogTextBox);
-            
+            GUI.AppendText($"Please enter existing lobby or create new one", GameLogTextBox, false, true);
+
             // Wait for login to complete
             while (!token.IsCancellationRequested)
             {
@@ -536,7 +557,7 @@ namespace Client
                 });
             }
 
-            log($"Updating the card display: {cards}");
+            log($"Updating the card display: {string.Join(',', cards)}");
 
             int i = 0;
             foreach (Card c in cards)
@@ -562,45 +583,53 @@ namespace Client
             DisplayCards(Game.Cards);
         }
 
-        public void AppendToChat(string text)
+        public void AppendToChat(string text, bool bold, bool endLine)
         {
-            log($"Adding text {text} to ChatBox");
-            GUI.AppendLine(text, ChatBox);
+            log($"Adding text <{text}> to ChatBox");
+            GUI.AppendText(text, ChatBox, bold, endLine);
         }
 
         public void AppendToGameLog(string text)
         {
-            log($"Adding text {text} to GameLog");
-            GUI.AppendLine(text, GameLogTextBox);
+            log($"Adding text <{text}> to GameLog");
+            GUI.AppendText(text, GameLogTextBox, false, true);
         }
 
         public void UpdateStatus(string text)
         {
-            log($"Updating status lable text: {text}");
+            log($"Updating status label text: {text}");
             GUI.Update(text, StatusLabel);
         }
 
-        private void ChatInputBox_KeyDown(object sender, KeyEventArgs e)
+        private void ChatInputBox_KeyUp(object sender, KeyEventArgs e)
         {
             bool isValid(string text)
             {
-                return (!text.Contains('|') || text.Length <= 120);
+                return (!text.Contains('|') && text.Length <= 120);
             }
 
             if (e.KeyCode != Keys.Enter)
                 return;
 
-            string userInput = ChatInputBox.Text;  // Get the text
+            var userInput = ChatInputBox.Text.Replace(Environment.NewLine, "");  // Get the text
 
             if (isValid(userInput))
             {
-                log($"User done creating chat text [{userInput}]. Sending broadcast message");
+                log($"User done creating chat text <{userInput}>. Sending broadcast message");
 
                 var response = BroadcastChatServerMessage.Create(userInput);
                 User.Writer.WriteMessage(response);
+
+                GUI.AppendText("me: ", ChatBox, true, false);
+                GUI.AppendText(userInput, ChatBox, false, true);                
             }
 
-            ChatInputBox.Clear();
+            GUI.InvokeControl(ChatInputBox, () =>
+            {
+                ChatInputBox.Text = "";
+                ChatInputBox.Select(0, 0);
+                ChatInputBox.Focus();
+            });
         }
 
         private void OfferAcceptButton_Click(object sender, EventArgs e)
@@ -618,6 +647,8 @@ namespace Client
             User.Writer.WriteMessage(response);
 
             Game.NumRejections++;
+
+            Game.PlayerMode = GameState.Mode.AwaitOffer;            
         }
 
         private void CardPicture_DoubleClick(object sender, EventArgs e)

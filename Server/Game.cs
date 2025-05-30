@@ -29,7 +29,7 @@ namespace Server
         
         public Game(List<Player> players)
         {
-            Players = players;
+            Players = RandomizeOrder(players);
 
             receiver_ = 1;
             giver_ = 0;
@@ -38,6 +38,12 @@ namespace Server
             NumRejections = 0;
 
             DealCards();
+        }
+
+        private List<T> RandomizeOrder<T>(IEnumerable<T> source)
+        {
+            Random rng = new Random();
+            return source.OrderBy(_ => rng.Next()).ToList();
         }
 
         public override String ToString()
@@ -63,24 +69,23 @@ namespace Server
 
         private void DealCards()
         {
-            var values = Card.Animal.GetValues(typeof(Card.Animal)).Cast<Card.Animal>().ToList();
+            var values = Enum.GetValues(typeof(Card.Animal)).Cast<Card.Animal>().ToList();
 
             var N = Players.Count;
-            var result = new List<Card.Animal>(N * NumCardsPerPlayer + 1);
+            var allCards = new List<Card.Animal>(N * NumCardsPerPlayer + 1);
 
             // Add each enum value n times
             for (int j = 1; j <= N; j++)
             {
                 var val = values[j];
                 for (int k = 0; k < NumCardsPerPlayer; k++)
-                    result.Add(val);
+                    allCards.Add(val);
             }
 
-            result.Add(Card.Animal.Joker);
+            allCards.Add(Card.Animal.Joker);
 
             // Shuffle the list
-            Random rng = new Random();
-            result = result.OrderBy(_ => rng.Next()).ToList();
+            allCards = RandomizeOrder(allCards);
 
             // Deal the cards to the players
             var n = NumCardsPerPlayer + 1;
@@ -90,7 +95,7 @@ namespace Server
                 var cards = new List<Card>();
                 for (int j = 0; j < n; j++)
                 {
-                    cards.Add(new Card(result[i]));
+                    cards.Add(new Card(allCards[i]));
                     i++;
                 }
                 

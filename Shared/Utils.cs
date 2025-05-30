@@ -28,13 +28,24 @@ namespace Shared
             }
         }
 
-        public static void AppendLine(string line, RichTextBox rtb)
-        {
+        public static void AppendText(string line, RichTextBox rtb, bool bold, bool newLine)
+        {            
             InvokeControl(rtb, () =>
             {
-                rtb.AppendText(line);
+                if (bold)
+                {
+                    Font boldFont = new Font(rtb.Font, FontStyle.Bold);
+                    rtb.SelectionFont = boldFont;
+                }
+
+                rtb.AppendText(line + (newLine ? Environment.NewLine : ""));
                 rtb.SelectionStart = rtb.Text.Length;
-                rtb.ScrollToCaret();                
+                rtb.ScrollToCaret();
+
+                if (bold)
+                {
+                    rtb.SelectionFont = rtb.Font;
+                }                              
             });
         }
 

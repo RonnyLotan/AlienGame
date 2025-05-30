@@ -1,4 +1,5 @@
-﻿using Shared;
+﻿using Microsoft.VisualBasic.ApplicationServices;
+using Shared;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -7,6 +8,7 @@ using System.Net.Sockets;
 using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
+using System.Threading.Tasks.Dataflow;
 
 namespace Server
 {
@@ -19,7 +21,17 @@ namespace Server
 
         private Game? game_;
         public bool GameInProgress { get => game_ is not null; }
-        public Game? Game { get => game_; }
+        public Game Game {
+            get
+            {
+                if (game_ == null)
+                {
+                    throw new InvalidOperationException("Accessing Game before it was initialized");
+                }
+
+                return game_;
+            }                        
+        }
 
         private Dictionary<int, ClientHandler> guestInfo_;
         private ClientHandler hostInfo_;
@@ -68,6 +80,15 @@ namespace Server
             }
         }
 
+        internal void broadcastGameLogMessage(string msg)
+        {
+            var logMsg = GameLogClientMessage.Create(msg);
+            foreach (var user in getGuestUsers())
+            {
+                WriteUser(user.Id, logMsg);
+            }
+        }
+
         public void StartGame()
         {
             var players = new List<Player>();
@@ -81,17 +102,27 @@ namespace Server
                 }
 
                 game_ = new Game(players);
-                _ = logger_.Log($"StartGame - created a new game");
+                _ = logger_.Log($"StartGame - created a new game");                
             }
 
             _ = logger_.Log($"StartGame - dealing the cards");
+            // Deal cards to all players and announce the start of the game
             foreach (var p in players)
             {
-                var msg = DealCardsClientMessage.Create(p.Cards);
-                WriteUser(p.Id, msg);
-
-                _ = logger_.Log($"StartGame - sent cards to player: {p}");
+                var msg1 = DealCardsClientMessage.Create(p.Cards);
+                WriteUser(p.Id, msg1);
+                _ = logger_.Log($"StartGame - sent cards to player: {p}");                
             }
+
+            // Let the Giver know they need to make an offer
+            var msg2 = MakeOfferClientMessage.Create(Game.NumRejections, Game.Receiver.Name);
+            WriteUser(Game.Giver.Id, msg2);
+
+            // Let the Receiver know they will receive an offer
+            var msg3 = ReceiveOfferClientMessage.Create(Game.Giver.Name);
+            WriteUser(Game.Receiver.Id, msg3);
+
+            broadcastGameLogMessage($"{Game.Giver.Name} will offer cards to {Game.Receiver.Name}");
         }
 
         public void EndGame()

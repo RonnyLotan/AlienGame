@@ -6,21 +6,17 @@ namespace Server
     internal class LobbyMessageHandler
     {
         private Logger logger_;
-        private Lobby lobby_;
-
-        private List<UserData> users_;
+        private Lobby lobby_;        
 
         public LobbyMessageHandler(Lobby lobby, Logger logger)
         {
             lobby_ = lobby;
-            logger_ = logger;
-
-            users_ = lobby.getGuestUsers();
-        }
+            logger_ = logger;            
+        }        
 
         public void Handle(CommMessage msg, UserData sender)
         {
-            _ = logger_.Log($"LobbyMessageHandler: Received message {msg} from {sender}");
+            _ = logger_.Log($"LobbyMessageHandler: Received message {msg.Text} from {sender}");
 
             if (msg.Type == CommMessage.MessageType.BroadcastChat && (msg is BroadcastChatServerMessage broadcastChatMsg))
             {
@@ -28,10 +24,13 @@ namespace Server
                 var response = ReceiveChatClientMessage.Create(sender.Name!, broadcastChatMsg.Msg);
 
                 _ = logger_.Log($"Broadcast the chat message to all players except the sender");
-                foreach (var user in users_)
+                foreach (var user in lobby_.getGuestUsers())
                 {
                     if (sender.Name != user.Name)
+                    {
                         lobby_.WriteUser(user.Id, response);
+                        _ = logger_.Log($"Sent {response} to player: {user}");
+                    }
                 }
 
                 _ = logger_.Log($"Sent {CommMessage.MessageType.ReceiveChat} message to all players");
@@ -73,6 +72,8 @@ namespace Server
                             // The game is expecting an offer from the giver
                             if (sender.Name == game.Giver.Name)
                             {
+                                lobby_.broadcastGameLogMessage($"{sender.Name} made #{game.NumRejections + 1} offer to {game.Receiver.Name}");
+
                                 // The offer was made by the giver
                                 game.OfferedCard = offerCardMsg.Card;
 
@@ -130,6 +131,8 @@ namespace Server
 
                                     var receiver = game.Receiver;
 
+                                    lobby_.broadcastGameLogMessage($"{receiver.Name} accepted card from {game.Giver.Name}");
+
                                     game.advanceGameState();
 
                                     var response = TakeCardClientMessage.Create(game.OfferedCard!);
@@ -139,12 +142,14 @@ namespace Server
                                 }
                                 else
                                 {
+                                    _ = logger_.Log($"Receiver reject offer\ngame: {game}");
                                     game.NumRejections++;
                                     game.State = GameState.WaitForOffer;
 
                                     var giver = game.Giver;
-                                    var response = responseToOfferMsg;
-                                    lobby_.WriteUser(giver.Id, response);
+                                    lobby_.WriteUser(giver.Id, responseToOfferMsg);
+
+                                    lobby_.broadcastGameLogMessage($"{game.Receiver.Name} rejected card from {game.Giver.Name}");
                                 }
                             }
                             else

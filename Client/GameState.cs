@@ -29,7 +29,7 @@ namespace Client
         public Card OfferedCard { get => Cards[OfferedCardIndex ?? 0]; }
         public List<int> RejectedCardIndices { get; set; }
 
-        public String? ReceiverName;
+        public String? ReceiverName, GiverName;
 
         // When acting as receiver
         public int NumRejections = 0;
@@ -44,8 +44,8 @@ namespace Client
             WaitForReponse,
 
             // Receiver modes
-            NeedToReply,
-            Respond
+            AwaitOffer,
+            NeedToReply            
         }
 
         private Mode playerMode_;
@@ -75,9 +75,13 @@ namespace Client
                     case Mode.WaitForReponse:
                         break;
 
-                    case Mode.Respond:
-                        client_.RespondToOffer();
+                    case Mode.AwaitOffer:
+                        client_.ActivateAwaitOfferMode();
                         break;
+
+                    case Mode.NeedToReply:
+                        client_.ActivateNeedToReplyMode();
+                        break;                    
                 }
             }
         }

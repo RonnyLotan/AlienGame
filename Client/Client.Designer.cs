@@ -145,7 +145,7 @@ namespace Client
             ChatInputBox.Size = new Size(886, 44);
             ChatInputBox.TabIndex = 8;
             ChatInputBox.Text = "";
-            ChatInputBox.KeyDown += ChatInputBox_KeyDown;
+            ChatInputBox.KeyUp += ChatInputBox_KeyUp;
             // 
             // GameLogTextBox
             // 
@@ -173,6 +173,7 @@ namespace Client
             OfferAcceptButton.Text = "Accept";
             OfferAcceptButton.UseVisualStyleBackColor = true;
             OfferAcceptButton.Click += OfferAcceptButton_Click;
+            OfferAcceptButton.Visible = false;
             // 
             // OfferRejectButton
             // 
@@ -183,6 +184,7 @@ namespace Client
             OfferRejectButton.Text = "Reject";
             OfferRejectButton.UseVisualStyleBackColor = true;
             OfferRejectButton.Click += OfferRejectButton_Click;
+            OfferRejectButton.Visible = false;
             // 
             // ConnectionStatusLabel
             // 

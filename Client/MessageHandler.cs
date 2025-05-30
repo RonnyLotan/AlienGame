@@ -26,7 +26,7 @@ namespace Client
 
         public void Handle(CommMessage msg)
         {
-            log($"MessageHandler: Received message {msg.Text}");
+            log($"MessageHandler: Received message <{msg.Text}>");
 
             switch (msg.Type)
             {
@@ -35,9 +35,11 @@ namespace Client
                     {
                         client_.Game = new GameState(client_, user_.Logger);
 
-                        log($"Start game. Receive these cards: {dealCardsMsg.CardList}");
+                        log($"Start game. Receive these cards: {string.Join(',', dealCardsMsg.CardList)}");
 
                         client_.Game.Cards = dealCardsMsg.CardList;
+
+                        client_.AppendToGameLog("Game is starting");
 
                         client_.Game.PlayerMode = GameState.Mode.NotMyTurn;
                     }
@@ -46,7 +48,7 @@ namespace Client
                 case CommMessage.MessageType.TakeCard:
                     if (msg is TakeCardClientMessage takeCardMsg)
                     {
-                        log($"TakeCard message. taking the card {takeCardMsg.Card}");
+                        log($"TakeCard message. taking the card <{takeCardMsg.Card}>");
 
                         client_.AddAcceptedCard(takeCardMsg.Card);
 
@@ -57,7 +59,7 @@ namespace Client
                 case CommMessage.MessageType.AcceptCard:
                     if (msg is AcceptCardClientMessage acceptCardMsg)
                     {
-                        log($"AcceptCard message. Offered the card {acceptCardMsg.Card}");
+                        log($"AcceptCard message. Offered the card <{acceptCardMsg.Card}>");
 
                         client_.Game.ReceivedCard = acceptCardMsg.Card;
                         client_.UpdateStatus($"Do you accept #{client_.Game.NumRejections + 1} card from {acceptCardMsg.Giver}");
@@ -77,6 +79,8 @@ namespace Client
                         }
                         else
                         {
+                            client_.Game.RejectedCardIndices.Add(client_.Game.OfferedCardIndex!.Value);
+                            
                             client_.UpdateStatus($"Please make #{client_.Game.RejectedCardIndices.Count + 1} offer to player {client_.Game.ReceiverName}");
                             client_.Game.PlayerMode = GameState.Mode.MakeOffer;
                         }
@@ -88,28 +92,43 @@ namespace Client
                     {
                         var receiver = makeOfferMsg.Receiver;
 
-                        log($"MakeOffer message. Asked to offer first card to {receiver}");
+                        log($"MakeOffer message. Asked to offer #{makeOfferMsg.Num + 1} card to <{receiver}>");
 
                         client_.Game.ReceiverName = receiver;
-                        client_.UpdateStatus($"Please make #1 offer to player {receiver}");
+                        client_.UpdateStatus($"Please make #{makeOfferMsg.Num + 1} offer to <{receiver}>");
 
                         client_.Game.PlayerMode = GameState.Mode.MakeOffer;
+                    }
+                    break;
+
+                case CommMessage.MessageType.ReceiveOffer:
+                    if (msg is ReceiveOfferClientMessage recOfferMsg)
+                    {
+                        var giver = recOfferMsg.Giver;
+
+                        log($"ReceiveOffer message. Expecting offers from <{giver}>");
+
+                        client_.UpdateStatus($"Expect an offer from <{giver}>");
+                        client_.Game.GiverName = giver;
+
+                        client_.Game.PlayerMode = GameState.Mode.AwaitOffer;
                     }
                     break;
 
                 case CommMessage.MessageType.ReceiveChat:
                     if (msg is ReceiveChatClientMessage receiveChatMsg)
                     {
-                        log($"ReceiveChat message. The chat message is {receiveChatMsg.Msg}");
+                        log($"ReceiveChat message.The chat message is <{receiveChatMsg.Msg}>");
 
-                        client_.AppendToChat($"{receiveChatMsg.Sender}:{receiveChatMsg.Msg}");
+                        client_.AppendToChat($"{receiveChatMsg.Sender}: ", true, false);
+                        client_.AppendToChat($"{receiveChatMsg.Msg}", false, true);
                     }
                     break;
 
                 case CommMessage.MessageType.GameLog:
                     if (msg is GameLogClientMessage gameLogMsg)
                     {
-                        log($"GameLog message. The text is {gameLogMsg.Msg}");
+                        log($"GameLog message. The text is <{gameLogMsg.Msg}>");
 
                         client_.AppendToGameLog($"{gameLogMsg.Msg}");
                     }

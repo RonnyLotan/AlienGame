@@ -14,15 +14,16 @@ namespace Shared
             TakeCard = 101,
             AcceptCard = 102,
             MakeOffer = 104,
-            NotYourTurn = 105,
-            ReceiveChat = 106,
-            Login = 107,
-            JoinLobby = 108,
-            GameLog = 109,
-            AesKey = 110,
-            Register = 111,
-            CreateLobby = 112,
-            CanStartGame = 113,
+            ReceiveOffer = 105,
+            NotYourTurn = 106,
+            ReceiveChat = 107,
+            Login = 108,
+            JoinLobby = 109,
+            GameLog = 110,
+            AesKey = 111,
+            Register = 112,
+            CreateLobby = 113,
+            CanStartGame = 114,
 
             // Messages from clients to server
             BroadcastChat = 200,
@@ -88,6 +89,7 @@ namespace Shared
                     case MessageType.TakeCard: return TakeCardClientMessage.FromText(msgBody);
                     case MessageType.AcceptCard: return AcceptCardClientMessage.FromText(msgBody);
                     case MessageType.MakeOffer: return MakeOfferClientMessage.FromText(msgBody);
+                    case MessageType.ReceiveOffer: return ReceiveOfferClientMessage.FromText(msgBody);
                     case MessageType.NotYourTurn: return NotYourTurnClientMessage.FromText(msgBody);
                     case MessageType.ReceiveChat: return ReceiveChatClientMessage.FromText(msgBody);
                     case MessageType.Login: return LoginResponseMessage.FromText(msgBody);
@@ -231,7 +233,7 @@ namespace Shared
     }
 
     // Message to let client know they need to offer one of their cards to the next player
-    // The message include the number of te offer (either 1 or 2)
+    // The message include the number of the offer (either 1 or 2)
     public class MakeOfferClientMessage : CommMessage
     {
         private static MessageType type_ = MessageType.MakeOffer;
@@ -264,6 +266,35 @@ namespace Shared
 
         public int Num;
         public string Receiver;
+    }
+
+    // Message to let client know they will receive card offers
+    public class ReceiveOfferClientMessage : CommMessage
+    {
+        private static MessageType type_ = MessageType.ReceiveOffer;
+
+        public static CommMessage FromText(string msgBody)
+        {
+            if (string.IsNullOrEmpty(msgBody))
+                return MessageBodyErrorMessage.Create(type_, msgBody);
+
+            var giver = msgBody;
+            return Create(giver);
+        }
+
+        public static ReceiveOfferClientMessage Create(string giver)
+        { return new ReceiveOfferClientMessage(giver); }
+
+        private ReceiveOfferClientMessage(string giver)
+        {
+            Giver = giver;
+        }
+
+        public override MessageType Type => type_;
+
+        public override string Text => base.Text + $"{Giver}";
+
+        public string Giver;
     }
 
     // Message to let client know they acted out of turn
