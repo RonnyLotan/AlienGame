@@ -1,3 +1,4 @@
+using Server;
 using Shared;
 using System.Net.Sockets;
 using System.Text;
@@ -75,6 +76,7 @@ namespace Client
                 GUI.InvokeControl(pictureBox, () =>
                 {
                     pictureBox.Enabled = false;
+                    pictureBox.Invalidate();
                 });
             }
 
@@ -100,6 +102,7 @@ namespace Client
                 GUI.InvokeControl(pictureBox, () =>
                 {
                     pictureBox.Enabled = true;
+                    pictureBox.Invalidate();
                 });
             }
 
@@ -108,6 +111,7 @@ namespace Client
                 GUI.InvokeControl(cardPictures[i], () =>
                 {
                     cardPictures[i].Enabled = false;
+                    cardPictures[i].Invalidate();
                 });
             }
 
@@ -124,6 +128,11 @@ namespace Client
                 OfferRejectButton.Visible = false;
                 OfferRejectButton.Enabled = false;
             });
+        }
+
+        public void ActivateAwaitResponseMode()
+        {
+            UpdateStatus("Waiting for reponse to offer");
         }
 
         public void ActivateAwaitOfferMode()
@@ -180,7 +189,7 @@ namespace Client
                                     var email = registerForm.Email;
 
                                     var reply = RegisterRequestServerMessage.Create(username, password, email);
-                                    User.Writer.WriteMessage(reply);
+                                    WriteToServer(reply);
                                 }
                             }
                         }
@@ -191,7 +200,7 @@ namespace Client
                             string password = loginForm.Password;
 
                             var reply = LoginRequestServerMessage.Create(username, password);
-                            User.Writer.WriteMessage(reply);
+                            WriteToServer(reply);
                         }
                     }
                 }
@@ -223,7 +232,7 @@ namespace Client
                                     var entryCode = createNewForm.EntryCode;
 
                                     var reply = CreateLobbyRequestServerMessage.Create(lobbyName, entryCode);
-                                    User.Writer.WriteMessage(reply);
+                                    WriteToServer(reply);
                                 }
                             }
                         }
@@ -234,7 +243,7 @@ namespace Client
                             var entryCode = joinLobbyForm.EntryCode;
 
                             var reply = JoinLobbyRequestServerMessage.Create(lobbyName, entryCode);
-                            User.Writer.WriteMessage(reply);
+                            WriteToServer(reply);
                         }
                     }
                 }
@@ -554,6 +563,7 @@ namespace Client
                 GUI.InvokeControl(pict, () =>
                 {
                     pict.Image = image;
+                    pict.Invalidate();
                 });
             }
 
@@ -583,6 +593,18 @@ namespace Client
             DisplayCards(Game.Cards);
         }
 
+        public void DisableRejectedCard(int index)
+        {
+            var pb = cardPictures[index];
+            
+            GUI.InvokeControl(pb, () =>
+            {
+                var grayedImage = GUI.MakeGrayscale(pb.Image);
+                pb.Image = grayedImage;
+                pb.Invalidate();
+            });
+        }
+
         public void AppendToChat(string text, bool bold, bool endLine)
         {
             log($"Adding text <{text}> to ChatBox");
@@ -601,6 +623,12 @@ namespace Client
             GUI.Update(text, StatusLabel);
         }
 
+        private void WriteToServer(CommMessage message, bool encrypt = true)
+        {
+            log($"Sending mesage to server: <{message.Text}>");
+            User.Writer.WriteMessage(message, encrypt);
+        }
+
         private void ChatInputBox_KeyUp(object sender, KeyEventArgs e)
         {
             bool isValid(string text)
@@ -611,14 +639,15 @@ namespace Client
             if (e.KeyCode != Keys.Enter)
                 return;
 
-            var userInput = ChatInputBox.Text.Replace(Environment.NewLine, "");  // Get the text
+            var userInput = ChatInputBox.Text; 
+            userInput = userInput.Substring(0, userInput.Length - 1);
 
             if (isValid(userInput))
             {
                 log($"User done creating chat text <{userInput}>. Sending broadcast message");
 
                 var response = BroadcastChatServerMessage.Create(userInput);
-                User.Writer.WriteMessage(response);
+                WriteToServer(response);
 
                 GUI.AppendText("me: ", ChatBox, true, false);
                 GUI.AppendText(userInput, ChatBox, false, true);                
@@ -637,14 +666,14 @@ namespace Client
             log($"User accepted the offer");
 
             var response = ResponseToOfferMessage.Create(true);
-            User.Writer.WriteMessage(response);
+            WriteToServer(response);
         }
 
         private void OfferRejectButton_Click(object sender, EventArgs e)
         {
             log($"User rejected the offer");
             var response = ResponseToOfferMessage.Create(false);
-            User.Writer.WriteMessage(response);
+            WriteToServer(response);
 
             Game.NumRejections++;
 
@@ -653,10 +682,16 @@ namespace Client
 
         private void CardPicture_DoubleClick(object sender, EventArgs e)
         {
+            // Ignore double clicks unless we are in MakeOffer mode
+            if (Game.PlayerMode != GameState.Mode.MakeOffer)
+                return;
+
             // Clear previous selection (remove border by forcing repaint)
             if (Game.OfferedCardIndex is not null)
             {
-                cardPictures[Game.OfferedCardIndex.Value].Invalidate();
+                var index = Game.OfferedCardIndex.Value;
+                Game.OfferedCardIndex = null;
+                cardPictures[index].Invalidate();
             }
 
             // Set new selected
@@ -677,7 +712,7 @@ namespace Client
 
             Game.PlayerMode = GameState.Mode.WaitForReponse;
             var response = OfferCardServerMessage.Create(Game.OfferedCard);
-            User.Writer.WriteMessage(response);
+            WriteToServer(response);
         }
 
         private void CardPicture_Paint(object sender, PaintEventArgs e)
@@ -686,13 +721,16 @@ namespace Client
                 return;
 
             PictureBox? pb = sender as PictureBox;
-            if (pb is not null && Game.OfferedCardIndex is not null)
+            if (pb is not null)
             {
-                if (pb == cardPictures[Game.OfferedCardIndex.Value])
+                if (Game.OfferedCardIndex is not null)
                 {
-                    using (Pen pen = new Pen(Color.Red, 3))
+                    if (pb == cardPictures[Game.OfferedCardIndex.Value])
                     {
-                        e.Graphics.DrawRectangle(pen, 0, 0, pb.Width - 1, pb.Height - 1);
+                        using (Pen pen = new Pen(Color.Red, 3))
+                        {
+                            e.Graphics.DrawRectangle(pen, 0, 0, pb.Width - 1, pb.Height - 1);
+                        }
                     }
                 }
             }
@@ -701,7 +739,7 @@ namespace Client
         private void StartGameButton_Click(object sender, EventArgs e)
         {
             var response = StartGameServerMessage.Create();
-            User.Writer.WriteMessage(response);
+            WriteToServer(response);
 
             log($"Send Start Game message to server");
 

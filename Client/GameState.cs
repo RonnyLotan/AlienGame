@@ -54,6 +54,7 @@ namespace Client
             get { return playerMode_; }
             set
             {
+                logger_.Log($"Player mode changing from <{playerMode_}> to <{value}>");
                 playerMode_ = value;
                 switch (playerMode_)
                 {
@@ -73,6 +74,7 @@ namespace Client
                         break;
 
                     case Mode.WaitForReponse:
+                        client_.ActivateAwaitResponseMode();   
                         break;
 
                     case Mode.AwaitOffer:
@@ -97,13 +99,13 @@ namespace Client
         internal void removeCard()
         {
             _ = logger_.Log($"Remove card {OfferedCard} from cards: {Cards}");
-            Cards.Remove(OfferedCard);
+            cards_.RemoveAt(OfferedCardIndex!.Value);
         }
 
         internal void AppendCard(Card card)
         {
-            _ = logger_.Log($"Add card {card} to cards: {Cards}");
-            Cards.Append(card);
+            _ = logger_.Log($"Add card {card} to cards: {string.Join(',',cards_)}");
+            cards_.Add(card);
         }
     }
 }

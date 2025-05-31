@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.TextBox;
 
 namespace Client
 {
@@ -79,8 +78,11 @@ namespace Client
                         }
                         else
                         {
-                            client_.Game.RejectedCardIndices.Add(client_.Game.OfferedCardIndex!.Value);
-                            
+                            var idx = client_.Game.OfferedCardIndex!.Value;
+                            client_.Game.OfferedCardIndex = null;
+                            client_.Game.RejectedCardIndices.Add(idx);
+                            client_.DisableRejectedCard(idx);
+
                             client_.UpdateStatus($"Please make #{client_.Game.RejectedCardIndices.Count + 1} offer to player {client_.Game.ReceiverName}");
                             client_.Game.PlayerMode = GameState.Mode.MakeOffer;
                         }

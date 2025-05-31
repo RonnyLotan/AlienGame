@@ -37,7 +37,7 @@ namespace Shared
             // Messages for both directions
             ResponseToOffer = 300,
             PublicKey = 301,
-            encrypted = 302,
+            Encrypted = 302,
 
             // Errors
             ParseError = 900,
@@ -62,6 +62,11 @@ namespace Shared
 
         public abstract MessageType Type { get; }
         public virtual string Text => $"{Type}|";
+
+        public bool isError()
+        {
+            return (int)Type >= 900;
+        }
 
         public string EncryptedText(string aesKey)
         {
@@ -113,7 +118,7 @@ namespace Shared
                     case MessageType.ResponseToOffer: return ResponseToOfferMessage.FromText(msgBody);
                     case MessageType.PublicKey: return PublicKeyMessage.FromText(msgBody);
 
-                    case MessageType.encrypted: return EncryptedMessage.FromText(msgBody, aesKey);
+                    case MessageType.Encrypted: return EncryptedMessage.FromText(msgBody, aesKey);
 
                     default: return UnrecognizedMessageTypeErrorMessage.Create(msgType.ToString(), msgBody);
                 }
@@ -122,7 +127,8 @@ namespace Shared
             return UnrecognizedMessageTypeErrorMessage.Create(splitMsg[0], splitMsg[1]);
         }
     }
-
+    
+    // Server sends the client the list of cards the are dealt
     public class DealCardsClientMessage : CommMessage
     {
         private static MessageType type_ = MessageType.DealCards;
@@ -469,6 +475,7 @@ namespace Shared
         public override MessageType Type => type_;
     }
 
+    // Server lets client know it has joined the lobby successfully, or failed to join with a reason
     public class JoinLobbyResponseMessage : ResponseMessage
     {
         private static MessageType type_ = MessageType.JoinLobby;
@@ -502,6 +509,7 @@ namespace Shared
         public override MessageType Type => type_;
     }
 
+    // Server lets the host know there are enough players in the lobby to start a game
     public class CanStartGameClientMessage : CommMessage
     {
         private static MessageType type_ = MessageType.CanStartGame;

@@ -13,7 +13,7 @@ namespace Shared
 
         public static readonly bool USE_ENCRYPTION = false;
     }
-    
+
     public class GUI
     {
         public static void InvokeControl(Control c, Action act)
@@ -29,7 +29,7 @@ namespace Shared
         }
 
         public static void AppendText(string line, RichTextBox rtb, bool bold, bool newLine)
-        {            
+        {
             InvokeControl(rtb, () =>
             {
                 if (bold)
@@ -45,7 +45,7 @@ namespace Shared
                 if (bold)
                 {
                     rtb.SelectionFont = rtb.Font;
-                }                              
+                }
             });
         }
 
@@ -53,8 +53,34 @@ namespace Shared
         {
             InvokeControl(lbl, () =>
             {
-                lbl.Text = line;                
+                lbl.Text = line;
             });
+        }
+
+        public static Image MakeGrayscale(Image original)
+        {
+            Bitmap grayBitmap = new Bitmap(original.Width, original.Height);
+
+            using (Graphics g = Graphics.FromImage(grayBitmap))
+            {
+                var colorMatrix = new System.Drawing.Imaging.ColorMatrix(
+                    new float[][]
+                    {
+                new float[] { 0.3f, 0.3f, 0.3f, 0, 0 },
+                new float[] { 0.59f, 0.59f, 0.59f, 0, 0 },
+                new float[] { 0.11f, 0.11f, 0.11f, 0, 0 },
+                new float[] { 0, 0, 0, 1, 0 },
+                new float[] { 0, 0, 0, 0, 1 }
+                    });
+
+                var attributes = new System.Drawing.Imaging.ImageAttributes();
+                attributes.SetColorMatrix(colorMatrix);
+
+                g.DrawImage(original, new Rectangle(0, 0, original.Width, original.Height),
+                            0, 0, original.Width, original.Height, GraphicsUnit.Pixel, attributes);
+            }
+
+            return grayBitmap;
         }
     }
 }

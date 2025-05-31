@@ -112,7 +112,14 @@ namespace Server
                 var msg1 = DealCardsClientMessage.Create(p.Cards);
                 WriteUser(p.Id, msg1);
                 _ = logger_.Log($"StartGame - sent cards to player: {p}");                
-            }
+            }     
+            
+            NotifyClientsOfNewTurn();
+        }
+
+        public void NotifyClientsOfNewTurn()
+        {
+            _ = logger_.Log($"NotifyClientsOfNewTurn - notifying new Giver <{Game.Giver}> and Receiver <{Game.Receiver}>");
 
             // Let the Giver know they need to make an offer
             var msg2 = MakeOfferClientMessage.Create(Game.NumRejections, Game.Receiver.Name);

@@ -18,6 +18,12 @@ namespace Server
         {
             _ = logger_.Log($"LobbyMessageHandler: Received message {msg.Text} from {sender}");
 
+            if (msg.isError())
+            {
+                _ = logger_.Log($"ERROR!!!: {msg.Text}");
+                return;
+            }
+
             if (msg.Type == CommMessage.MessageType.BroadcastChat && (msg is BroadcastChatServerMessage broadcastChatMsg))
             {
                 // A chat message was received from one of the users. Need to broadcast to everyone else.
@@ -78,14 +84,21 @@ namespace Server
                                 game.OfferedCard = offerCardMsg.Card;
 
                                 var receiver = game.Receiver;
+                                var giver = game.Giver;
                                 if (game.NumRejections == 2)
                                 {
                                     // Send card to receiver, which they are required to take 
-                                    var response = TakeCardClientMessage.Create(offerCardMsg.Card);
-                                    lobby_.WriteUser(receiver.Id, response);
+                                    var response1 = TakeCardClientMessage.Create(offerCardMsg.Card);
+                                    lobby_.WriteUser(receiver.Id, response1);
+
+                                    // Let giver know the offer was accepted
+                                    var response2 = ResponseToOfferMessage.Create(true);
+                                    lobby_.WriteUser(giver.Id, response2);
 
                                     // Advance game state
                                     game.advanceGameState();
+
+                                    lobby_.NotifyClientsOfNewTurn();
 
                                     _ = logger_.Log($"Sent {CommMessage.MessageType.TakeCard} message to Receiver\ngame: {game}");
                                 }
@@ -130,15 +143,23 @@ namespace Server
                                     _ = logger_.Log($"Receiver accepted offer\ngame: {game}");
 
                                     var receiver = game.Receiver;
+                                    var giver = game.Giver;
+                                    var offeredCard = game.OfferedCard!;
 
                                     lobby_.broadcastGameLogMessage($"{receiver.Name} accepted card from {game.Giver.Name}");
 
                                     game.advanceGameState();
 
-                                    var response = TakeCardClientMessage.Create(game.OfferedCard!);
+                                    // Let giver know the offer was accepted
+                                    lobby_.WriteUser(giver.Id, msg);
+
+                                    // Send card to receiver
+                                    var response = TakeCardClientMessage.Create(offeredCard);
                                     lobby_.WriteUser(receiver.Id, response);
 
                                     _ = logger_.Log($"Sent {CommMessage.MessageType.TakeCard} message to Receiver\ngame: {game}");
+
+                                    lobby_.NotifyClientsOfNewTurn();
                                 }
                                 else
                                 {
@@ -160,13 +181,6 @@ namespace Server
                                 _ = logger_.Log($"Sent {CommMessage.MessageType.NotYourTurn} message to sender who is not the Receiver\ngame: {game}");
                             }
                         }
-                    }
-                    break;
-
-                case CommMessage.MessageType.CommunicationError:
-                    if (msg is CommunicationErrorMessage commErrorMsg)
-                    {
-                        _ = logger_.Log($"Communication error: {commErrorMsg.Error}");
                     }
                     break;
 
