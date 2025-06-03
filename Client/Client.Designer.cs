@@ -54,6 +54,7 @@ namespace Client
             // 
             // ConnectButton
             // 
+            ConnectButton.Enabled = false;
             ConnectButton.Location = new Point(33, 47);
             ConnectButton.Name = "ConnectButton";
             ConnectButton.Size = new Size(109, 25);
@@ -61,10 +62,10 @@ namespace Client
             ConnectButton.Text = "Connect";
             ConnectButton.UseVisualStyleBackColor = true;
             ConnectButton.Click += ConnectButton_Click;
-            ConnectButton.Enabled = false;
             // 
             // JoinLobbyButton
             // 
+            JoinLobbyButton.Enabled = false;
             JoinLobbyButton.Location = new Point(33, 78);
             JoinLobbyButton.Name = "JoinLobbyButton";
             JoinLobbyButton.Size = new Size(109, 23);
@@ -72,7 +73,6 @@ namespace Client
             JoinLobbyButton.Text = "Join Lobby";
             JoinLobbyButton.UseVisualStyleBackColor = true;
             JoinLobbyButton.Click += JoinLobbyButton_Click;
-            JoinLobbyButton.Enabled = false;
             // 
             // CardPicture1
             // 
@@ -172,8 +172,8 @@ namespace Client
             OfferAcceptButton.TabIndex = 11;
             OfferAcceptButton.Text = "Accept";
             OfferAcceptButton.UseVisualStyleBackColor = true;
-            OfferAcceptButton.Click += OfferAcceptButton_Click;
             OfferAcceptButton.Visible = false;
+            OfferAcceptButton.Click += OfferAcceptButton_Click;
             // 
             // OfferRejectButton
             // 
@@ -183,8 +183,8 @@ namespace Client
             OfferRejectButton.TabIndex = 12;
             OfferRejectButton.Text = "Reject";
             OfferRejectButton.UseVisualStyleBackColor = true;
-            OfferRejectButton.Click += OfferRejectButton_Click;
             OfferRejectButton.Visible = false;
+            OfferRejectButton.Click += OfferRejectButton_Click;
             // 
             // ConnectionStatusLabel
             // 
@@ -198,14 +198,15 @@ namespace Client
             // 
             // StartGameButton
             // 
+            StartGameButton.Enabled = false;
             StartGameButton.Location = new Point(33, 107);
             StartGameButton.Name = "StartGameButton";
             StartGameButton.Size = new Size(109, 23);
             StartGameButton.TabIndex = 14;
             StartGameButton.Text = "Start Game";
             StartGameButton.UseVisualStyleBackColor = true;
+            StartGameButton.Visible = false;
             StartGameButton.Click += StartGameButton_Click;
-            StartGameButton.Enabled = false;
             // 
             // Client
             // 

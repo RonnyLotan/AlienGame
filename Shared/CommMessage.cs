@@ -24,6 +24,8 @@ namespace Shared
             Register = 112,
             CreateLobby = 113,
             CanStartGame = 114,
+            AnnounceWinner = 115,
+            LobbyClosing = 116,
 
             // Messages from clients to server
             BroadcastChat = 200,
@@ -32,21 +34,22 @@ namespace Shared
             RegisterRequest = 203,
             CreateLobbyRequest = 204,
             JoinLobbyRequest = 205,
-            StartGame = 206,
+            ExitLobbyRequest = 206,
+            StartGame = 207,
 
             // Messages for both directions
             ResponseToOffer = 300,
-            PublicKey = 301,
-            Encrypted = 302,
+            InterruptGame = 301,
+            PublicKey = 302,
+            Encrypted = 303,
 
             // Errors
             ParseError = 900,
             UnrecognizedMessageTypeError = 901,
             MessageBodyError = 902,
             PlayerQuitError = 903,
-            PlayerMessageError = 904,
-            EncryptionError = 905,
-            CommunicationError = 906
+            EncryptionError = 904,
+            CommunicationError = 905
         }
 
         protected enum ResponseToCardOffer
@@ -58,6 +61,12 @@ namespace Shared
         {
             Success,
             Failure
+        }
+
+        public enum LobbyStatus
+        {
+            Host,
+            Guest
         }
 
         public abstract MessageType Type { get; }
@@ -104,6 +113,8 @@ namespace Shared
                     case MessageType.CreateLobby: return CreateLobbyResponseMessage.FromText(msgBody);
                     case MessageType.AesKey: return AesKeyMessage.FromText(msgBody);
                     case MessageType.CanStartGame: return CanStartGameClientMessage.FromText(msgBody);
+                    case MessageType.AnnounceWinner: return AnnounceWinnerClientMessage.FromText(msgBody);
+                    case MessageType.LobbyClosing: return LobbyClosingClientMessage.FromText(msgBody);
 
                     // Messages from clients to server
                     case MessageType.BroadcastChat: return BroadcastChatServerMessage.FromText(msgBody);
@@ -111,11 +122,13 @@ namespace Shared
                     case MessageType.LoginRequest: return LoginRequestServerMessage.FromText(msgBody);
                     case MessageType.RegisterRequest: return RegisterRequestServerMessage.FromText(msgBody);
                     case MessageType.JoinLobbyRequest: return JoinLobbyRequestServerMessage.FromText(msgBody);
+                    case MessageType.ExitLobbyRequest: return ExitLobbyRequestServerMessage.FromText(msgBody);
                     case MessageType.CreateLobbyRequest: return CreateLobbyRequestServerMessage.FromText(msgBody);
                     case MessageType.StartGame: return StartGameServerMessage.FromText(msgBody);
 
                     // Messages for both directions
                     case MessageType.ResponseToOffer: return ResponseToOfferMessage.FromText(msgBody);
+                    case MessageType.InterruptGame: return InterruptGameMessage.FromText(msgBody);
                     case MessageType.PublicKey: return PublicKeyMessage.FromText(msgBody);
 
                     case MessageType.Encrypted: return EncryptedMessage.FromText(msgBody, aesKey);
@@ -454,7 +467,7 @@ namespace Shared
                 return MessageBodyErrorMessage.Create(type_, msgBody);
 
             var status = splitMsg[0];
-            if (Enum.TryParse<ResponseToLogin>(status, out ResponseToLogin response))
+            if (Enum.TryParse(status, out ResponseToLogin response))
             {
                 if (response == ResponseToLogin.Success)
                     return Create(true, null);
@@ -488,25 +501,41 @@ namespace Shared
                 return MessageBodyErrorMessage.Create(type_, msgBody);
 
             var status = splitMsg[0];
-            if (Enum.TryParse<ResponseToLogin>(status, out ResponseToLogin response))
+            if (Enum.TryParse(status, out ResponseToLogin response))
             {
                 if (response == ResponseToLogin.Success)
-                    return JoinLobbyResponseMessage.Create(true, null);
+                {
+                    var lobbyStatus = splitMsg[1];
+                    if (Enum.TryParse(lobbyStatus, out LobbyStatus s))
+                        return Create(s == LobbyStatus.Host);
+                }
                 else if (response == ResponseToLogin.Failure)
-                    return JoinLobbyResponseMessage.Create(false, splitMsg[1]);
+                    return Create(splitMsg[1]);
             }
 
             return MessageBodyErrorMessage.Create(type_, msgBody);
         }
 
-        public static JoinLobbyResponseMessage Create(bool success, string? reason)
-        { return new JoinLobbyResponseMessage(success, reason); }
+        public static JoinLobbyResponseMessage Create(string reason)
+        { return new JoinLobbyResponseMessage(reason); }
 
-        private JoinLobbyResponseMessage(bool success, string? reason) : base(success, reason)
+        public static JoinLobbyResponseMessage Create(bool host)
+        { return new JoinLobbyResponseMessage(host); }
+
+        private JoinLobbyResponseMessage(string? reason) : base(false, reason)
         {
         }
 
+        private JoinLobbyResponseMessage(bool host) : base(true, null)
+        {
+            Host = host;
+        }
+
         public override MessageType Type => type_;
+
+        public override string Text => base.Text + $"{(Success ? (Host ? LobbyStatus.Host : LobbyStatus.Guest) : "")}";
+
+        public bool Host;
     }
 
     // Server lets the host know there are enough players in the lobby to start a game
@@ -516,15 +545,79 @@ namespace Shared
 
         public static CommMessage FromText(string msgBody)
         {
+            var canStart = bool.Parse(msgBody);
+
+            return Create(canStart);
+        }
+
+        public static CanStartGameClientMessage Create(bool canStart)
+        {
+            return new CanStartGameClientMessage(canStart);
+        }
+
+        private CanStartGameClientMessage(bool canStart)
+        {
+            CanStart = canStart;
+        }
+
+        public override MessageType Type => type_;
+        public override string Text => base.Text + $"{CanStart}";
+
+        public bool CanStart;
+    }
+
+    // Server lets all player know there is a winner and a loser. Game is over
+    public class AnnounceWinnerClientMessage : CommMessage
+    {
+        private static MessageType type_ = MessageType.AnnounceWinner;
+
+        public static CommMessage FromText(string msgBody)
+        {
+            string[] splitMsg = msgBody.Split(';');
+
+            if (splitMsg.Length != 2 || string.IsNullOrEmpty(splitMsg[0]) || string.IsNullOrEmpty(splitMsg[1]))
+                return MessageBodyErrorMessage.Create(type_, msgBody);
+
+            var winner = splitMsg[0];
+            var loser = splitMsg[1];
+
+            return Create(winner, loser);
+        }
+
+        public static AnnounceWinnerClientMessage Create(string winner, string loser)
+        {
+            return new AnnounceWinnerClientMessage(winner, loser);
+        }
+
+        private AnnounceWinnerClientMessage(string winner, string loser) 
+        {
+            Winner = winner;
+            Loser = loser;
+        }
+
+        public override MessageType Type => type_;
+        public override string Text => base.Text + $"{Winner};{Loser}";
+
+        public string Winner;
+        public string Loser;
+    }
+
+    // Server letting clients know the lobby is closing
+    public class LobbyClosingClientMessage : CommMessage
+    {
+        private static MessageType type_ = MessageType.CanStartGame;
+
+        public static CommMessage FromText(string msgBody)
+        {
             return Create();
         }
 
-        public static CanStartGameClientMessage Create()
+        public static LobbyClosingClientMessage Create()
         {
-            return new CanStartGameClientMessage();
+            return new LobbyClosingClientMessage();
         }
 
-        private CanStartGameClientMessage()
+        private LobbyClosingClientMessage()
         {
         }
 
@@ -768,6 +861,7 @@ namespace Shared
         public override MessageType Type => type_;
     }
 
+    // Message sent to the server to request entry into a lobby
     public class JoinLobbyRequestServerMessage : LobbyRequestServerMessage
     {
         private static MessageType type_ = MessageType.JoinLobbyRequest;
@@ -798,6 +892,30 @@ namespace Shared
         }
 
         public override MessageType Type => type_;
+    }
+
+    // Message sent to server to request to get out of the lobby
+    public class ExitLobbyRequestServerMessage : CommMessage
+    {
+        private static MessageType type_ = MessageType.ExitLobbyRequest;
+
+        public static CommMessage FromText(string msgBody)
+        {
+            var userName = msgBody;
+            return Create(userName);
+        }
+
+        public static ExitLobbyRequestServerMessage Create(string userName)
+        { return new ExitLobbyRequestServerMessage(userName); }
+
+        private ExitLobbyRequestServerMessage(string userName)
+        {
+            UserName = userName;    
+        }
+
+        public override MessageType Type => type_;
+
+        public string UserName;
     }
 
     // Tell the server to start the game
@@ -855,6 +973,31 @@ namespace Shared
         public override string Text => base.Text + $"{(Accept ? ResponseToCardOffer.Accept : ResponseToCardOffer.Reject)}";
 
         public bool Accept { get; init; }
+    }
+
+    // Tell the server or the clients that a user has interrupted the game
+    public class InterruptGameMessage : CommMessage
+    {
+        private static MessageType type_ = MessageType.StartGame;
+
+        public static CommMessage FromText(string msgBody)
+        {
+            string userName = msgBody;
+
+            return Create(userName);
+        }
+
+        public static InterruptGameMessage Create(string userName)
+        { return new InterruptGameMessage(userName); }
+
+        private InterruptGameMessage(string userName)
+        {
+            UserName = userName;
+        }
+
+        public override MessageType Type => type_;
+
+        public string UserName;
     }
 
     // Message to provide the RSA public key   

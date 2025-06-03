@@ -18,11 +18,6 @@ namespace Client
 
         public Logger Logger { get; init; }
 
-        public bool IsConnected = false;
-        public bool IsLoggedIn = false;
-        public bool IsInLobby = false;
-        public bool IsInGame = false;
-
         private string? name_;
         public string Name {
             get
@@ -34,11 +29,14 @@ namespace Client
 
                 return name_;
             }
-            private set
+            set
             {
                 name_ = value;
             }
         }
+
+        public bool IsHost = false;
+        public bool InLobby = false;
 
         internal UserData(int id, TcpClient socket, NetworkStream nws, string aesKey, Logger logger)
         {
@@ -59,6 +57,11 @@ namespace Client
         public override string ToString()
         {
             return $"#{Id}|{name_ ?? ""}";
+        }
+
+        public void ResetName()
+        {
+            name_ = null;
         }
     }
 }

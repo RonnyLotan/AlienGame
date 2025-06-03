@@ -8,7 +8,7 @@ namespace Shared
 {
     public class Card 
     {
-        public enum Animal
+        public enum Type
         {
             Joker = 0,
             Bear,
@@ -19,31 +19,31 @@ namespace Shared
             Goat
         }
 
-        static Dictionary<Animal, string> AnimalImagesDict = new Dictionary<Animal, string>
+        static Dictionary<Type, string> AnimalImagesDict = new Dictionary<Type, string>
         {
-            { Animal.Joker, "joker.png" },
-            { Animal.Bear, "bear.jpg" },
-            { Animal.Lion, "lion.jpg" },
-            { Animal.Horse, "horse.jpg" },
-            { Animal.Dog, "dog.jpeg" },
-            { Animal.Snake, "snake.jpg" },
-            { Animal.Goat, "goat.jpg" },
+            { Type.Joker, "joker.png" },
+            { Type.Bear, "bear.jpg" },
+            { Type.Lion, "lion.jpg" },
+            { Type.Horse, "horse.jpg" },
+            { Type.Dog, "dog.jpeg" },
+            { Type.Snake, "snake.jpg" },
+            { Type.Goat, "goat.jpg" },
         };
 
-        private Animal animal_;
-        public String Name => $"{animal_}";
+        public Type Animal;
+        public String Name => $"{Animal}";
 
         public Image Picture { get; init; }
 
-        public Card(Animal animal)
+        public Card(Type animal)
         {
-            animal_ = animal;
-            Picture = Image.FromFile($"..\\..\\..\\..\\Shared\\Card Images\\{AnimalImagesDict[animal_]}");
+            Animal = animal;
+            Picture = Image.FromFile($"..\\..\\..\\..\\Shared\\Card Images\\{AnimalImagesDict[Animal]}");
         }
 
         public static bool TryParse(String str, out Card? card)
         {
-            if (Enum.TryParse<Animal>(str, out Animal animal))
+            if (Enum.TryParse<Type>(str, out Type animal))
             {
                 card = new Card(animal);
                 return true;

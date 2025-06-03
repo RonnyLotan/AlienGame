@@ -6,6 +6,7 @@ using System.Drawing;
 using System.Linq;
 using System.Net.Sockets;
 using System.Numerics;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
@@ -21,7 +22,8 @@ namespace Server
 
         private Game? game_;
         public bool GameInProgress { get => game_ is not null; }
-        public Game Game {
+        public Game Game
+        {
             get
             {
                 if (game_ == null)
@@ -30,7 +32,7 @@ namespace Server
                 }
 
                 return game_;
-            }                        
+            }
         }
 
         private Dictionary<int, ClientHandler> guestInfo_;
@@ -51,10 +53,18 @@ namespace Server
             return $"{Name}|{Host}|{guestInfo_.Count} guests|{(GameInProgress ? Game : null)}";
         }
 
+        public ClientHandler getClientHandler(int id)
+        {
+            lock (UpdateLock)
+            {
+                return guestInfo_[id];
+            }
+        }
+
         public Lobby(string name, ClientHandler host, Server server)
         {
             Name = name;
-            
+
             Host = host.User.Name!;
             hostInfo_ = host;
             server_ = server;
@@ -66,9 +76,14 @@ namespace Server
 
             logger_ = new Logger($"Lobby-{name}");
 
-            _ = logger_.Log($"Lobby is created");
+            log($"Lobby is created");
 
             AddGuest(host);
+        }
+
+        private void log(string text)
+        {
+            log(text);
         }
 
         public List<UserData> getGuestUsers()
@@ -80,7 +95,58 @@ namespace Server
             }
         }
 
-        internal void broadcastGameLogMessage(string msg)
+        public void ExitLobbyRequest(string name)
+        {
+            if (name == Host)
+            {
+                log($"ExitLobbyRequest - host <{name}> is leaving the lobby");
+                BroadcastGameLogMessage($"The host {name} left. Lobby is closing!");
+                
+                List<ClientHandler> guests;
+
+                // Shut down the lobby by removing all users and terminating its message loop
+                lock (UpdateLock)
+                {
+                    guests = guestInfo_.Values.ToList();
+                    guestInfo_.Clear();
+
+                    cts_.Cancel();
+                }
+
+                // Notify all users that the lobby is closing
+                var exitMsg = LobbyClosingClientMessage.Create();
+                foreach (var guest in guests)
+                {
+                    var user = guest.User;
+                    if (user.Name !=  name)
+                        WriteUser(user.Id, exitMsg);
+
+                    user.ResetLobby();
+                    guest.Start();
+                }
+            }
+            else
+            {
+                log($"ExitLobbyRequest - guest <{name}> left the lobby");
+                BroadcastGameLogMessage($"The guest {name} left the lobby");
+
+                lock (UpdateLock)
+                {
+                    var keysToRemove = guestInfo_.Where(kvp => kvp.Value.User.Name == name)
+                       .Select(kvp => kvp.Key)
+                       .ToList();
+
+                    guestInfo_.Remove(keysToRemove.First());
+
+                    var canStart = guestInfo_.Count >= MIN_NUMBER_OF_PLAYERS;
+
+                    WriteUser(hostInfo_.Id, CanStartGameClientMessage.Create(canStart));
+                    log($"Notify host if game can start");
+                }
+            }
+        }
+
+        internal void BroadcastGameLogMessage(string msg)
         {
             var logMsg = GameLogClientMessage.Create(msg);
             foreach (var user in getGuestUsers())
@@ -98,28 +164,64 @@ namespace Server
                 {
                     var player = new Player(client.User.Id, client.User.Name!);
                     players.Add(player);
-                    _ = logger_.Log($"StartGame - add player {player} to the game");
+                    log($"StartGame - add player {player} to the game");
                 }
 
                 game_ = new Game(players);
-                _ = logger_.Log($"StartGame - created a new game");                
+                log($"StartGame - created a new game");
             }
 
-            _ = logger_.Log($"StartGame - dealing the cards");
+            log($"StartGame - dealing the cards");
             // Deal cards to all players and announce the start of the game
             foreach (var p in players)
             {
                 var msg1 = DealCardsClientMessage.Create(p.Cards);
                 WriteUser(p.Id, msg1);
-                _ = logger_.Log($"StartGame - sent cards to player: {p}");                
-            }     
-            
-            NotifyClientsOfNewTurn();
+                log($"StartGame - sent cards to player: {p}");
+            }
+
+            if (!CheckGameOver())
+                NotifyClientsOfNewTurn();
+        }
+
+        // Check is the game is over and if so end it
+        public bool CheckGameOver()
+        {
+            var winner = Game.DoWeHaveAWinner();
+            if (winner is not null)
+            {
+                log($"CheckGameOver - winner found: <{winner.Name}>");
+
+                var loser = Game.FindPlayerWithJoker();
+                log($"CheckGameOver - loser found: <{loser.Name}>");
+
+                var msg = AnnounceWinnerClientMessage.Create(winner.Name, loser.Name);
+                foreach (var user in getGuestUsers())
+                {
+                    WriteUser(user.Id, msg);
+                }
+                log($"CheckGameOver - announce winner message sent to all clients");
+
+                EndGame();
+
+                return true;
+            }
+
+            return false;
+        }
+
+        public void NotifyClientsOfInterrupt(InterruptGameMessage msg)
+        {
+            log($"Interrupt game message sent to all clients");
+            foreach (var user in getGuestUsers())
+            {
+                WriteUser(user.Id, msg);
+            }
         }
 
         public void NotifyClientsOfNewTurn()
         {
-            _ = logger_.Log($"NotifyClientsOfNewTurn - notifying new Giver <{Game.Giver}> and Receiver <{Game.Receiver}>");
+            log($"NotifyClientsOfNewTurn - notifying new Giver <{Game.Giver}> and Receiver <{Game.Receiver}>");
 
             // Let the Giver know they need to make an offer
             var msg2 = MakeOfferClientMessage.Create(Game.NumRejections, Game.Receiver.Name);
@@ -129,7 +231,7 @@ namespace Server
             var msg3 = ReceiveOfferClientMessage.Create(Game.Giver.Name);
             WriteUser(Game.Receiver.Id, msg3);
 
-            broadcastGameLogMessage($"{Game.Giver.Name} will offer cards to {Game.Receiver.Name}");
+            BroadcastGameLogMessage($"{Game.Giver.Name} will offer cards to {Game.Receiver.Name}");
         }
 
         public void EndGame()
@@ -138,6 +240,8 @@ namespace Server
             {
                 game_ = null;
             }
+
+            log($"EndGame - the game is terminated");
         }
 
         public void AddGuest(ClientHandler guest)
@@ -150,7 +254,7 @@ namespace Server
 
                 guestInfo_.Add(guest.Id, guest);
                 socketToClientDict_.Add(guest.User.Socket.Client, guest);
-                _ = logger_.Log($"Guest added to lobby. {guestInfo_.Count} guests");
+                log($"Guest added to lobby. {guestInfo_.Count} guests");
 
                 cnt = guestInfo_.Count;
             }
@@ -161,18 +265,18 @@ namespace Server
             {
                 WriteUser(i, msg);
             }
-            _ = logger_.Log($"AddGuest - sent notification to all other guests");
+            log($"AddGuest - sent notification to all other guests");
 
             if (cnt == MIN_NUMBER_OF_PLAYERS)
             {
-                WriteUser(hostInfo_.Id, CanStartGameClientMessage.Create());
-                _ = logger_.Log($"AddGuest - notify host game can start");
+                WriteUser(hostInfo_.Id, CanStartGameClientMessage.Create(true));
+                log($"AddGuest - notify host game can start");
             }
         }
 
         public void Start()
         {
-            _ = logger_.Log($"Starting the lobby thread");
+            log($"Starting the lobby thread");
 
             var trd = new Thread(() => MessageLoop(cts_.Token));
             trd.IsBackground = true;
@@ -181,20 +285,20 @@ namespace Server
 
         public void Stop(String reason)
         {
-            _ = logger_.Log($"Closing the lobby: {reason}, Game State: {this}");
+            log($"Closing the lobby: {reason}, Game State: {this}");
             cts_.Cancel();
         }
 
         public void WriteUser(int id, CommMessage message)
         {
-            _ = logger_.Log($"WriteUser - sending user #{id}: {message.Text}");
+            log($"WriteUser - sending user #{id}: {message.Text}");
             lock (UpdateLock)
             {
                 guestInfo_[id].User.Writer.WriteMessage(message);
             }
         }
 
-        void HandleUserLeft(ClientHandler client, bool isError)
+        public void HandleUserLeft(ClientHandler client, bool isError)
         {
             server_.DisconnectUser(client);
 
@@ -235,7 +339,7 @@ namespace Server
             }
             else
             {
-                var msg = GameLogClientMessage.Create($"The host {Host} has left the Loby {(isError ? "because of error" : "")}. Everyone must exit.");
+                var msg = GameLogClientMessage.Create($"The guest {client.User.Name} has left the Loby {(isError ? "because of error" : "")}.");
                 close_game(msg);
             }
         }
@@ -243,7 +347,7 @@ namespace Server
         private void MessageLoop(CancellationToken token)
         {
             var messageHandler = new LobbyMessageHandler(this, logger_);
-            logger_.Log($"Starting message loop");
+            log($"Starting message loop");
 
             while (!token.IsCancellationRequested)
             {
@@ -267,29 +371,29 @@ namespace Server
                     }
 
                     var user = client.User;
-                    logger_.Log($"Received message from user {user}");
+                    log($"Received message from user <{user}>");
                     try
                     {
                         CommMessage? message;
-                        if (client.User.Reader.ReadMessage(out message))
+                        if (user.Reader.ReadMessage(out message))
                         {
                             if (message is not null)
                             {
-                                logger_.Log($"MessageLoop - received message: {message.Text}");
+                                log($"MessageLoop - received message: {message.Text}");
                                 messageHandler.Handle(message, user);
                             }
                         }
                         else
                         {
                             // User has disconnected.
-                            _ = logger_.Log($"User #{user.Id}|{user.Name} has left the game");
+                            log($"User <{user}> has left the game");
                             HandleUserLeft(client, false);
                             break;
                         }
                     }
                     catch (Exception e)
                     {
-                        _ = logger_.Log($"User #{user.Id}|{user.Name} had an error: {e.Message}");
+                        log($"User <{user}> had an error: {e.Message}");
                         HandleUserLeft(client, true);
                     }
                 }

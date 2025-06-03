@@ -32,15 +32,7 @@ namespace Client
                 case CommMessage.MessageType.DealCards:
                     if (msg is DealCardsClientMessage dealCardsMsg)
                     {
-                        client_.Game = new GameState(client_, user_.Logger);
-
-                        log($"Start game. Receive these cards: {string.Join(',', dealCardsMsg.CardList)}");
-
-                        client_.Game.Cards = dealCardsMsg.CardList;
-
-                        client_.AppendToGameLog("Game is starting");
-
-                        client_.Game.PlayerMode = GameState.Mode.NotMyTurn;
+                        client_.StartGame(dealCardsMsg.CardList);
                     }
                     break;
 
@@ -127,6 +119,24 @@ namespace Client
                     }
                     break;
 
+                case CommMessage.MessageType.AnnounceWinner:
+                    if (msg is AnnounceWinnerClientMessage winnerMsg)
+                    {
+                        log($"Game over. The winner is <{winnerMsg.Winner}> and the loser is <{winnerMsg.Loser}>");
+                       
+                        client_.EndGame(winnerMsg.Winner, winnerMsg.Loser);
+                    }
+                    break;
+
+                case CommMessage.MessageType.InterruptGame:
+                    if (msg is InterruptGameMessage interruptMsg)
+                    {
+                        log($"Game interrupted by <{interruptMsg.UserName}>");
+
+                        client_.InterruptGame(interruptMsg.UserName);
+                    }
+                    break;
+
                 case CommMessage.MessageType.GameLog:
                     if (msg is GameLogClientMessage gameLogMsg)
                     {
@@ -140,6 +150,13 @@ namespace Client
                     if (msg is CanStartGameClientMessage canStartMsg)
                     {
                         client_.EnableStartGame();
+                    }
+                    break;
+
+                case CommMessage.MessageType.LobbyClosing:
+                    if (msg is LobbyClosingClientMessage closingMsg)
+                    {
+                        client_.ExitLobby();
                     }
                     break;
 

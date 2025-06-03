@@ -74,6 +74,11 @@ namespace Server
             Id = id;
         }        
 
+        public void ResetLobby()
+        {
+            lobby_ = null;
+        }
+
         public override string ToString()
         {
             return $"#{Id}|{name_ ?? ""}";

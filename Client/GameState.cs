@@ -15,11 +15,7 @@ namespace Client
         public List<Card> Cards
         {
             get { return cards_; }
-            set
-            {
-                cards_ = value;
-                client_.DisplayCards(cards_);
-            }
+            init { cards_ = value; }
         }
 
         private Logger logger_;
@@ -88,12 +84,13 @@ namespace Client
             }
         }
 
-        internal GameState(Client client, Logger logger)
+        internal GameState(Client client, Logger logger, List<Card> cardList)
         {
             client_ = client;
-            cards_ = new List<Card>();
+            cards_ = cardList;
             RejectedCardIndices = new List<int>();
             logger_ = logger;
+            playerMode_ = Mode.NotMyTurn;
         }
 
         internal void removeCard()

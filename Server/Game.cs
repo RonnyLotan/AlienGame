@@ -24,9 +24,9 @@ namespace Server
         public Card? OfferedCard;
 
         public int NumRejections { get; set; }
-        
+
         public GameState State { get; set; }
-        
+
         public Game(List<Player> players)
         {
             Players = RandomizeOrder(players);
@@ -64,15 +64,15 @@ namespace Server
             NumRejections = 0;
             giver_ = (giver_ + 1) % Players.Count;
             receiver_ = (receiver_ + 1) % Players.Count;
-            State = GameState.WaitForOffer;            
+            State = GameState.WaitForOffer;
         }
 
         private void DealCards()
         {
-            var values = Enum.GetValues(typeof(Card.Animal)).Cast<Card.Animal>().ToList();
+            var values = Enum.GetValues(typeof(Card.Type)).Cast<Card.Type>().ToList();
 
             var N = Players.Count;
-            var allCards = new List<Card.Animal>(N * NumCardsPerPlayer + 1);
+            var allCards = new List<Card.Type>(N * NumCardsPerPlayer + 1);
 
             // Add each enum value n times
             for (int j = 1; j <= N; j++)
@@ -82,7 +82,7 @@ namespace Server
                     allCards.Add(val);
             }
 
-            allCards.Add(Card.Animal.Joker);
+            allCards.Add(Card.Type.Joker);
 
             // Shuffle the list
             allCards = RandomizeOrder(allCards);
@@ -98,11 +98,47 @@ namespace Server
                     cards.Add(new Card(allCards[i]));
                     i++;
                 }
-                
+
                 p.Initialize(cards);
 
                 n = NumCardsPerPlayer;
             }
+        }
+
+        public Player? DoWeHaveAWinner()
+        {
+            foreach (var p in Players)
+            {
+                // A winner is a player that has 4 identical cards
+                if (p.Cards.Count == 4)
+                {
+                    var found = true;
+                    for (int i = 0; i < p.Cards.Count - 1; i++)
+                    {
+                        if (p.Cards[i] != p.Cards[i + 1])
+                        { found = false; break; }
+                    }
+
+                    if (found)
+                        return p;
+                }
+            }
+
+            return null;
+        }
+
+        public Player FindPlayerWithJoker()
+        {
+            foreach (var p in Players)
+            {
+                foreach (var card in p.Cards)
+                {
+                    if (card.Animal == Card.Type.Joker)
+                        return p;
+                }
+            }
+
+            throw new NotImplementedException();
         }
     }
 }

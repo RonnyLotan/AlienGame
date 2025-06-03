@@ -23,7 +23,7 @@ namespace Server
         {
             user_ = new UserData(socket, Interlocked.Increment(ref sockCount));
 
-            logger_ = new Logger($"Server Client#{User}");
+            logger_ = new Logger($"Server Client{User}");
             _ = logger_.Log($"In ClientHandler constructor");
 
             server_ = server;
@@ -190,7 +190,7 @@ namespace Server
                         }
                         catch (Exception ex)
                         {
-                            var reply = JoinLobbyResponseMessage.Create(false, $"Failed to join lobby with error - {ex.Message}");
+                            var reply = JoinLobbyResponseMessage.Create($"Failed to join lobby with error - {ex.Message}");
                             User.Writer.WriteMessage(reply);
                             _ = logger_.Log($"User {User} failed to join lobby {joinLobbyMsg.Name} with error: {ex.Message}");
                             return;
@@ -200,23 +200,25 @@ namespace Server
                         {
                             var success = true;
                             string? reason = null;
-                            if (lobby.Host == User.Name)
+                            var isHost = lobby.Host == User.Name;
+
+                            if (isHost)
                                 server_.OpenLobby(lobby.Name, this);
                             else
                                 success = server_.JoinLobby(lobby.Name, this, out reason);
 
-                            var reply = JoinLobbyResponseMessage.Create(success, reason);
+                            var reply = success ? JoinLobbyResponseMessage.Create(isHost) : JoinLobbyResponseMessage.Create(reason!);
                             User.Writer.WriteMessage(reply);
 
                             if (success)
-                                _ = logger_.Log($"User {User} has joined lobby {lobby} successfully");
+                                _ = logger_.Log($"User <{User}> has joined lobby <{lobby.Name}> successfully");
                             else
-                                _ = logger_.Log($"User {User} failed to join lobby {lobby}");
+                                _ = logger_.Log($"User <{User}> failed to join lobby <{lobby}>: <{reason}>");
                         }
                         else
                         {
                             string reason = lobby is null ? "Unknown lobby name" : "Wrong password";
-                            var reply = JoinLobbyResponseMessage.Create(false, reason);
+                            var reply = JoinLobbyResponseMessage.Create(reason);
                             User.Writer.WriteMessage(reply);
                             _ = logger_.Log($"User {User} failed to join lobby {joinLobbyMsg.Name}: {reason}");
                         }                        
