@@ -7,7 +7,7 @@ namespace Server
 {
     public partial class Server : Form
     {
-        private TcpListener listener;
+        private TcpListener listener_;
         
         private CancellationTokenSource cts_;
 
@@ -20,29 +20,29 @@ namespace Server
         public string PrivateKey;
         public string PublicKey;      
         
-        Logger Logger;
+        Logger logger_;
 
         public Server()
         {
-            listener = new TcpListener(IPAddress.Any, Global.SERVER_TCPPORT);
+            listener_ = new TcpListener(IPAddress.Any, Global.SERVER_TCPPORT);
 
             (PrivateKey, PublicKey) = Encryption.GenerateRsaKeyPair();
 
-            Logger = new Logger("Server");
+            logger_ = new Logger("Server");
 
             clients_ = new List<ClientHandler>();
             lobbies_ = new Dictionary<string, Lobby>();
 
             cts_ = new CancellationTokenSource();
 
-            _ = Logger.Log($"Server is constructed");
+            _ = logger_.Log($"Server is constructed");
 
             InitializeComponent();
         }
 
         public void DisconnectUser(ClientHandler client)
         {
-            _ = Logger.Log($"Disconnecting user: {client.User}");
+            _ = logger_.Log($"Disconnecting user: {client.User}");
             client.User.Close();
             lock (Clients)
             {
@@ -52,7 +52,7 @@ namespace Server
 
         public bool JoinLobby(string name, ClientHandler guest, out string? reason)
         {
-            _ = Logger.Log($"Trying to add user: {guest.User} to lobby: {name}");
+            _ = logger_.Log($"Trying to add user: {guest.User} to lobby: {name}");
             lock (Lobbies)
             {
                 if (Lobbies.TryGetValue(name, out var lobby))
@@ -63,7 +63,7 @@ namespace Server
 
                         guest.EnterLobby(lobby);
 
-                        _ = Logger.Log($"User: {guest.User} added to lobby: {name}");
+                        _ = logger_.Log($"User: {guest.User} added to lobby: {name}");
 
                         reason = null;
                         return true;
@@ -71,13 +71,13 @@ namespace Server
                     else
                     {
                         reason = "game in progress";
-                        _ = Logger.Log($"Failed to add user: {guest.User} to lobby: {lobby} - {reason}");
+                        _ = logger_.Log($"Failed to add user: {guest.User} to lobby: {lobby} - {reason}");
                     }
                 }
                 else
                 {
                     reason = "lobby is not open";
-                    _ = Logger.Log($"Failed to add user: {guest.User} to lobby: {lobby} - {reason}");
+                    _ = logger_.Log($"Failed to add user: {guest.User} to lobby: {lobby} - {reason}");
                 }
             }
 
@@ -86,7 +86,7 @@ namespace Server
 
         public void OpenLobby(string name, ClientHandler guest)
         {
-            _ = Logger.Log($"Create a new lobby: {name} and add user: {guest.User} to lobby");
+            _ = logger_.Log($"Create a new lobby: {name} and add user: {guest.User} to lobby");
             Lobby lobby;
             lock (Lobbies)
             {
@@ -100,7 +100,7 @@ namespace Server
 
         public void AddClient(ClientHandler client)
         {
-            _ = Logger.Log($"New client added to client list: {client}");
+            _ = logger_.Log($"New client added to client list: {client}");
             lock (Clients)
             { Clients.Add(client); }
         }
@@ -115,19 +115,19 @@ namespace Server
 
         private void LoadAsync(object sender, EventArgs e)
         {
-            listener.Start();
+            listener_.Start();
 
-            var listenerThread = new Thread(() => ThreadAction(cts_.Token));
+            var listenerThread = new Thread(() => ListenerAction(cts_.Token));
 
-            _ = Logger.Log($"Launching listener thread");
+            _ = logger_.Log($"Launching listener thread");
 
             listenerThread.IsBackground = true;
             listenerThread.Start();
         }
 
-        void ThreadAction(CancellationToken token)
+        void ListenerAction(CancellationToken token)
         {
-            _ = Logger.Log($"Server started on port {Global.SERVER_IP}");
+            _ = logger_.Log($"Server started on port {Global.SERVER_IP}");
 
             while (!token.IsCancellationRequested)
             {
@@ -135,21 +135,21 @@ namespace Server
                 List<Socket> readSockets = new List<Socket>();
 
                 // Add listener socket
-                readSockets.Add(listener.Server);
+                readSockets.Add(listener_.Server);
 
                 // Use Select to wait for any socket ready to read
                 Socket.Select(readSockets, null, null, 1000 * 1000); // Timeout in microseconds
 
                 foreach (Socket socket in readSockets)
                 {
-                    if (socket == listener.Server)
+                    if (socket == listener_.Server)
                     {
-                        _ = Logger.Log($"A new client has connected");
+                        _ = logger_.Log($"A new client has connected");
 
                         // Accept new client
-                        var handler = new ClientHandler(listener.AcceptTcpClient(), this);
+                        var handler = new ClientHandler(listener_.AcceptTcpClient(), this);
                         
-                        _ = Logger.Log($"New client connected: #{handler.Id}");
+                        _ = logger_.Log($"New client connected: #{handler.Id}");
 
                         handler.Start();
                     }

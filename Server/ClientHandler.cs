@@ -10,7 +10,7 @@ namespace Server
 {
     public class ClientHandler
     {
-        static int sockCount = 0;
+        static int counter_ = 0;
         private Server server_;
         private Logger logger_;
 
@@ -19,9 +19,9 @@ namespace Server
 
         public int Id { get => User.Id; }
 
-        public ClientHandler(TcpClient socket, Server server)
+        public ClientHandler(TcpClient client, Server server)
         {
-            user_ = new UserData(socket, Interlocked.Increment(ref sockCount));
+            user_ = new UserData(client, Interlocked.Increment(ref counter_));
 
             logger_ = new Logger($"Server Client{User}");
             _ = logger_.Log($"In ClientHandler constructor");
@@ -33,10 +33,10 @@ namespace Server
 
         public void Start()
         {
-            new Thread(() => client_trd_loop()) { IsBackground = true }.Start();
+            new Thread(() => ClientLoop()) { IsBackground = true }.Start();
         }
        
-        void client_trd_loop()
+        void ClientLoop()
         {
             try
             {
@@ -255,15 +255,7 @@ namespace Server
                         }
                     }
                     break;
-
-                case CommMessage.MessageType.StartGame:
-                    if (msg is StartGameServerMessage canStartMsg)
-                    {
-                        _ = logger_.Log($"Received message to start the game");
-                        User.Lobby.StartGame();
-                    }
-                    break;
-
+              
                 case CommMessage.MessageType.CommunicationError:
                     if (msg is CommunicationErrorMessage commErrorMsg)
                     {

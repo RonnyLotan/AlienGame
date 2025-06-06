@@ -14,7 +14,7 @@ namespace Server
     public class UserData
     {
         public readonly int Id;
-        public TcpClient Socket { get; init; }
+        public TcpClient Client { get; init; }
         private NetworkStream nws_;
         public MyReader Reader { get; init; }
         public MyWriter Writer { get; set; }
@@ -58,12 +58,12 @@ namespace Server
         }
         public bool InLobby { get => lobby_ is not null;  }
 
-        public UserData(TcpClient socket, int id)
+        public UserData(TcpClient client, int id)
         {
-            Socket = socket;
+            Client = client;
             var sessionAesKey = Encryption.GenerateAesKey();
 
-            nws_ = Socket.GetStream();
+            nws_ = Client.GetStream();
             Reader = new MyReader(sessionAesKey, nws_);
             Writer = new MyWriter(sessionAesKey, nws_) ;
 
@@ -86,7 +86,7 @@ namespace Server
 
         public void Close()
         {
-            Socket.Close();
+            Client.Close();
             Reader.Close(); 
             Writer.Close();
         }

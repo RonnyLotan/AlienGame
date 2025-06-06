@@ -53,7 +53,7 @@ namespace Server
             return $"{Name}|{Host}|{guestInfo_.Count} guests|{(GameInProgress ? Game : null)}";
         }
 
-        public ClientHandler getClientHandler(int id)
+        public ClientHandler GetClientHandler(int id)
         {
             lock (UpdateLock)
             {
@@ -83,10 +83,10 @@ namespace Server
 
         private void log(string text)
         {
-            log(text);
+            _ = logger_.Log(text);
         }
 
-        public List<UserData> getGuestUsers()
+        public List<UserData> GetGuestUsers()
         {
             lock (UpdateLock)
             {
@@ -149,7 +149,7 @@ namespace Server
         internal void BroadcastGameLogMessage(string msg)
         {
             var logMsg = GameLogClientMessage.Create(msg);
-            foreach (var user in getGuestUsers())
+            foreach (var user in GetGuestUsers())
             {
                 WriteUser(user.Id, logMsg);
             }
@@ -196,7 +196,7 @@ namespace Server
                 log($"CheckGameOver - loser found: <{loser.Name}>");
 
                 var msg = AnnounceWinnerClientMessage.Create(winner.Name, loser.Name);
-                foreach (var user in getGuestUsers())
+                foreach (var user in GetGuestUsers())
                 {
                     WriteUser(user.Id, msg);
                 }
@@ -213,7 +213,7 @@ namespace Server
         public void NotifyClientsOfInterrupt(InterruptGameMessage msg)
         {
             log($"Interrupt game message sent to all clients");
-            foreach (var user in getGuestUsers())
+            foreach (var user in GetGuestUsers())
             {
                 WriteUser(user.Id, msg);
             }
@@ -253,7 +253,7 @@ namespace Server
                 ids = guestInfo_.Keys.ToList();
 
                 guestInfo_.Add(guest.Id, guest);
-                socketToClientDict_.Add(guest.User.Socket.Client, guest);
+                socketToClientDict_.Add(guest.User.Client.Client, guest);
                 log($"Guest added to lobby. {guestInfo_.Count} guests");
 
                 cnt = guestInfo_.Count;

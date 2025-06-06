@@ -35,7 +35,7 @@ namespace Server
                 var response = ReceiveChatClientMessage.Create(sender.Name!, broadcastChatMsg.Msg);
 
                 log($"Broadcast the chat message to all players except the sender");
-                foreach (var user in lobby_.getGuestUsers())
+                foreach (var user in lobby_.GetGuestUsers())
                 {
                     if (sender.Name != user.Name)
                     {
@@ -220,7 +220,7 @@ namespace Server
 
             if (msg.Type == CommMessage.MessageType.CommunicationError && (msg is CommunicationErrorMessage commError))
             {
-                lobby_.HandleUserLeft(lobby_.getClientHandler(sender.Id), true);
+                lobby_.HandleUserLeft(lobby_.GetClientHandler(sender.Id), true);
             }
         }
     }
