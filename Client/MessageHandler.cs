@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace Client
 {
@@ -29,6 +30,56 @@ namespace Client
 
             switch (msg.Type)
             {
+                case CommMessage.MessageType.Login:
+                    if (msg is LoginResponseMessage loginResponseMsg)
+                    {
+                        log($"Received response to login attempt - {loginResponseMsg.Text}");
+                        client_.LoginUser(loginResponseMsg.Success, loginResponseMsg.Reason);
+                    }
+                    break;
+
+                case CommMessage.MessageType.Register:
+                    if (msg is RegisterResponseMessage registerResponseMsg)
+                    {
+                        log($"Recieved response to user registration attempt - {registerResponseMsg.Text}");
+                        if (registerResponseMsg.Success)
+                        {
+                            log($"User registration succeeded");
+                            MessageBox.Show($"Registration succeeded - please log in", "Registration", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        }
+                        else
+                        {
+                            log($"User registration failed");
+                            MessageBox.Show($"Registration failed - {registerResponseMsg.Reason}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                    }
+                    break;
+
+                case CommMessage.MessageType.JoinLobby:
+                    if (msg is JoinLobbyResponseMessage joinResponseMsg)
+                    {
+                        log($"Received response to join lobby attempt - {joinResponseMsg.Text}");
+                        client_.UserJoinLobby(joinResponseMsg.Success, joinResponseMsg.Host, joinResponseMsg.Reason);
+                    }
+                    break;
+
+                case CommMessage.MessageType.CreateLobby:
+                    if (msg is CreateLobbyResponseMessage createResponseMsg)
+                    {
+                        log($"Received response to create lobby attempt - {createResponseMsg.Text}");
+                        if (createResponseMsg.Success)
+                        {
+                            log($"Lobby creation succeeded");
+                            MessageBox.Show($"Lobby creation succeeded - please log in", "Create Lobby", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        }
+                        else
+                        {
+                            log($"Lobby creation failed");
+                            MessageBox.Show($"Lobby creation failed - {createResponseMsg.Reason}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                    }
+                    break;
+
                 case CommMessage.MessageType.DealCards:
                     if (msg is DealCardsClientMessage dealCardsMsg)
                     {
@@ -123,7 +174,7 @@ namespace Client
                     if (msg is AnnounceWinnerClientMessage winnerMsg)
                     {
                         log($"Game over. The winner is <{winnerMsg.Winner}> and the loser is <{winnerMsg.Loser}>");
-                       
+
                         client_.EndGame(winnerMsg.Winner, winnerMsg.Loser);
                     }
                     break;
@@ -149,7 +200,7 @@ namespace Client
                 case CommMessage.MessageType.CanStartGame:
                     if (msg is CanStartGameClientMessage canStartMsg)
                     {
-                        client_.EnableStartGame();
+                        client_.EnableStartGame(canStartMsg.CanStart);
                     }
                     break;
 
@@ -164,6 +215,7 @@ namespace Client
                     if (msg is CommunicationErrorMessage commErrorMsg)
                     {
                         log($"Communication error: {commErrorMsg.Error}");
+                        throw new Exception(commErrorMsg.Error);
                     }
                     break;
 

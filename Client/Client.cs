@@ -1,11 +1,7 @@
-using Microsoft.VisualBasic.ApplicationServices;
-using Server;
 using Shared;
 using System.Net.Sockets;
 using System.Text;
 using System.Windows.Forms;
-using System.Xml.Serialization;
-using static System.Runtime.CompilerServices.RuntimeHelpers;
 
 namespace Client
 {
@@ -70,11 +66,14 @@ namespace Client
 
         private void LoadAsync(object sender, EventArgs e)
         {
-            var trd = new Thread(() => ClientLoop(cts_.Token));
+            var trd = new Thread(() =>
+            {
+                if (!ClientLoop(cts_.Token))
+                    ShutDown();
+            });
+
             trd.IsBackground = true;
             trd.Start();
-
-            UpdateConnectionStatusNotConnected();
         }
 
         public void StartGame(List<Card> cardList)
@@ -86,11 +85,17 @@ namespace Client
             DisplayCards(Game.Cards);
 
             // Prepare the end Game button
-            GUI.InvokeControl(StartGameButton, () =>
+            GUI.ActionComponent(StartGameButton, () =>
             {
                 StartGameButton.Text = "End Game";
                 StartGameButton.Visible = true;
                 StartGameButton.Enabled = true;
+                StartGameButton.Focus();
+            });
+
+            GUI.ActionComponent(JoinLobbyButton, () =>
+            {
+                JoinLobbyButton.Enabled = false;
             });
 
             AppendToGameLog("Game is starting");
@@ -119,10 +124,17 @@ namespace Client
 
             UpdateConnectionStatusConnected();
 
-            GUI.InvokeControl(ConnectButton, () =>
+            GUI.ActionComponent(ConnectButton, () =>
             {
-                JoinLobbyButton.Text = "Enter Lobby";
+                ConnectButton.Enabled = true;                
             });
+
+            GUI.ActionComponent(StartGameButton, () =>
+            {
+                StartGameButton.Visible = false;
+            });
+
+            PrepareForJoinLobby();
 
             log($"Updated UI after lobby exit");
         }
@@ -135,38 +147,47 @@ namespace Client
 
             AppendToGameLog($"---------------------------------------");
 
-            UpdateConnectionStatusInLobby();
-
-            UpdateStatus("");
+            UpdateConnectionStatusInLobby();            
 
             // Prepare the Start Game button
-            GUI.InvokeControl(StartGameButton, () =>
+            GUI.ActionComponent(StartGameButton, () =>
             {
                 if (User.IsHost)
+                {
                     StartGameButton.Text = "Start Game";
-                else 
+                    StartGameButton.Visible = true;
+                }
+                else
                     StartGameButton.Visible = false;
             });
+
+            GUI.ActionComponent(JoinLobbyButton, () =>
+            {
+                JoinLobbyButton.Enabled = true; 
+            });
+
+            ActivateNotYourTurnMode();
+            UpdateStatus("");
         }
 
         public void ActivateNotYourTurnMode()
         {
             foreach (PictureBox pictureBox in cardPictures)
             {
-                GUI.InvokeControl(pictureBox, () =>
+                GUI.ActionComponent(pictureBox, () =>
                 {
                     pictureBox.Enabled = false;
                     pictureBox.Invalidate();
                 });
             }
 
-            GUI.InvokeControl(OfferAcceptButton, () =>
+            GUI.ActionComponent(OfferAcceptButton, () =>
             {
                 OfferAcceptButton.Visible = false;
                 OfferAcceptButton.Enabled = false;
             });
 
-            GUI.InvokeControl(OfferRejectButton, () =>
+            GUI.ActionComponent(OfferRejectButton, () =>
             {
                 OfferRejectButton.Visible = false;
                 OfferRejectButton.Enabled = false;
@@ -179,7 +200,7 @@ namespace Client
         {
             foreach (PictureBox pictureBox in cardPictures)
             {
-                GUI.InvokeControl(pictureBox, () =>
+                GUI.ActionComponent(pictureBox, () =>
                 {
                     pictureBox.Enabled = true;
                     pictureBox.Invalidate();
@@ -188,7 +209,7 @@ namespace Client
 
             foreach (int i in rejectedCardIndices)
             {
-                GUI.InvokeControl(cardPictures[i], () =>
+                GUI.ActionComponent(cardPictures[i], () =>
                 {
                     cardPictures[i].Enabled = false;
                     cardPictures[i].Invalidate();
@@ -197,13 +218,13 @@ namespace Client
 
             UpdateStatus("Make an offer");
 
-            GUI.InvokeControl(OfferAcceptButton, () =>
+            GUI.ActionComponent(OfferAcceptButton, () =>
             {
                 OfferAcceptButton.Visible = false;
                 OfferAcceptButton.Enabled = false;
             });
 
-            GUI.InvokeControl(OfferRejectButton, () =>
+            GUI.ActionComponent(OfferRejectButton, () =>
             {
                 OfferRejectButton.Visible = false;
                 OfferRejectButton.Enabled = false;
@@ -217,13 +238,13 @@ namespace Client
 
         public void ActivateAwaitOfferMode()
         {
-            GUI.InvokeControl(OfferAcceptButton, () =>
+            GUI.ActionComponent(OfferAcceptButton, () =>
             {
                 OfferAcceptButton.Visible = true;
                 OfferAcceptButton.Enabled = false;
             });
 
-            GUI.InvokeControl(OfferRejectButton, () =>
+            GUI.ActionComponent(OfferRejectButton, () =>
             {
                 OfferRejectButton.Visible = true;
                 OfferRejectButton.Enabled = false;
@@ -234,13 +255,13 @@ namespace Client
 
         public void ActivateNeedToReplyMode()
         {
-            GUI.InvokeControl(OfferAcceptButton, () =>
+            GUI.ActionComponent(OfferAcceptButton, () =>
             {
                 OfferAcceptButton.Visible = true;
                 OfferAcceptButton.Enabled = true;
             });
 
-            GUI.InvokeControl(OfferRejectButton, () =>
+            GUI.ActionComponent(OfferRejectButton, () =>
             {
                 OfferRejectButton.Visible = true;
                 OfferRejectButton.Enabled = true;
@@ -250,7 +271,7 @@ namespace Client
         private void ConnectButton_Click(object sender, EventArgs e)
         {
             log($"User clicked the {ConnectButton.Text} button");
-            if (ConnectButton.Text == "Connect")
+            if (!User.Connected)
             {
                 using (var loginForm = new LoginForm())
                 {
@@ -269,9 +290,7 @@ namespace Client
                                     var email = registerForm.Email;
 
                                     var reply = RegisterRequestServerMessage.Create(username, password, email);
-                                    WriteToServer(reply);
-
-                                    User.Name = username;
+                                    WriteToServer(reply);                                    
                                 }
                             }
                         }
@@ -281,6 +300,8 @@ namespace Client
                             string username = loginForm.Username;
                             string password = loginForm.Password;
 
+                            User.Name = username;
+
                             var reply = LoginRequestServerMessage.Create(username, password);
                             WriteToServer(reply);
                         }
@@ -289,7 +310,16 @@ namespace Client
             }
             else
             {
-                // handle disconnect
+                GUI.ActionComponent(this, () =>
+                {
+                    Text = FormHeader;
+                });
+                
+
+                PrepareForLogin();
+
+                var msg = LogoutServerMessage.Create();
+                WriteToServer(msg);
             }
         }
 
@@ -367,22 +397,7 @@ namespace Client
             }
             log($"ClientLoop - got encryption keys");
 
-            if (!Login(token))
-            {
-                MessageBox.Show("Failed to log in!!! Quitting", "Fatal Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                client.Close();
-
-                log($"ClientLoop - Failed to log in");
-                return false;
-            }
-
-            if (!EnterLobby(User, token))
-            {
-                MessageBox.Show("Failed to enter lobby!!! Quitting", "Fatal Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                client.Close();
-
-                return false;
-            }
+            PrepareForLogin();
 
             var handler = new MessageHandler(this, User);
             CommMessage? message;
@@ -396,147 +411,123 @@ namespace Client
             {
                 log($"Exception thrown in main loop - {ex.Message}");
                 MessageBox.Show($"Communication Error - {ex.Message}\nQuitting", "Fatal Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+
                 return false;
             }
 
             return true;
         }
 
-        private bool Login(CancellationToken token)
+        public void LoginUser(bool success, string? reason)
         {
+            log($"LoginUser - recieved response to login attempt - {(success ? "Success" : "Failure")}{(success ? "" : ":" + reason!)}");
+            if (success)
+            {
+                log($"LoginUser - login succeeded");
+                UpdateConnectionStatusConnected();
+
+                User.Connected = true;
+
+                GUI.ActionComponent(this, () =>
+                {
+                    Text = FormHeader + $" - {User.Name}";
+                });
+
+                GUI.ActionComponent(ConnectButton, () =>
+                {
+                    ConnectButton.Text = "Disconnect";
+                });
+                log($"LoginUser - updating connection button");
+
+                PrepareForJoinLobby();
+            }
+            else
+            {
+                log($"LoginUser - Failed. Notifying user");
+                MessageBox.Show($"Login Error - {reason}", "Login", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                User.ResetName();
+            }
+        }
+
+        private void PrepareForLogin()
+        {
+            User.Connected = false;
+            UpdateConnectionStatusNotConnected();
+
             log($"Login - Prepare UI for login");
 
-            GUI.InvokeControl(ConnectButton, () => { ConnectButton.Enabled = true; });
+            GUI.ActionComponent(ConnectButton, () =>
+            {
+                ConnectButton.Text = "Connect";
+                ConnectButton.Enabled = true;
+                ConnectButton.Visible = true;
+                ConnectButton.Focus();
+            });
+
+            GUI.ActionComponent(JoinLobbyButton, () =>
+            {
+                JoinLobbyButton.Visible = false;
+            });
+
+            GUI.ActionComponent(GameLogTextBox, () =>
+            {
+                GameLogTextBox.Clear();
+            });
+
             GUI.AppendText($"Please log in or register", GameLogTextBox, false, true);
 
             // Wait for login to complete
             log($"Login - done preparing UI for login");
-
-            CommMessage? message;
-            while (!token.IsCancellationRequested && User.Reader.ReadMessage(out message))
-            {
-                log($"Login - Inside login/registration loop. Got message: {message!.Text}");
-                if (message!.Type == CommMessage.MessageType.Login && message is LoginResponseMessage loginResponseMsg)
-                {
-                    log($"Login - recieved response to login attempt - {loginResponseMsg.Text}");
-                    if (loginResponseMsg.Success)
-                    {
-                        log($"Login - login succeeded");
-                        UpdateConnectionStatusConnected();
-
-                        GUI.InvokeControl(ConnectButton, () =>
-                        {
-                            ConnectButton.Text = "Disconnect";
-                        });
-                        log($"Login - updating connection button");
-
-                        GUI.InvokeControl(JoinLobbyButton, () =>
-                        {
-                            JoinLobbyButton.Enabled = true;
-                        });
-                        log($"Login - updating join lobby button");
-
-                        log($"Login - Updated UI done");
-
-                        return true;
-                    }
-                    else
-                    {
-                        log($"Login - Failed. Notifying user");
-                        MessageBox.Show($"Login Error - {loginResponseMsg.Reason}", "Login", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        User.ResetName();
-                    }
-
-                }
-                else if (message!.Type == CommMessage.MessageType.Register && message is RegisterResponseMessage registerResponseMsg)
-                {
-                    log($"Login - recieved response to registration attempt - {registerResponseMsg.Text}");
-                    if (registerResponseMsg.Success)
-                    {
-                        log($"Login - registration succeeded. Notifying user");
-                        MessageBox.Show($"Registration succeeded - please log in", "Registration", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    }
-                    else
-                    {
-                        log($"Login registration failed. Notifying user");
-                        MessageBox.Show($"Registration failed - {registerResponseMsg.Reason}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    }
-                }
-                else if (message!.Type == CommMessage.MessageType.CommunicationError && message is CommunicationErrorMessage commErrorMsg)
-                {
-                    log($"Communication error: {commErrorMsg.Error}");
-                    return false;
-                }
-            }
-
-            log($"Login - Failed. Exiting Login method");
-            return false;
         }
 
-        private bool EnterLobby(UserData user, CancellationToken token)
+        private void PrepareForJoinLobby()
         {
             log($"Prepare UI for enterring loby");
-            GUI.InvokeControl(JoinLobbyButton, () => { JoinLobbyButton.Enabled = true; });
-            GUI.AppendText($"Please enter existing lobby or create new one", GameLogTextBox, false, true);
-
-            // Wait for login to complete
-            while (!token.IsCancellationRequested)
+            GUI.ActionComponent(JoinLobbyButton, () => 
             {
-                log($"Inside join lobby/create new lobby loop");
-                CommMessage? message;
-                while (!token.IsCancellationRequested && user.Reader.ReadMessage(out message))
-                {
-                    if (message!.Type == CommMessage.MessageType.JoinLobby && message is JoinLobbyResponseMessage joinResponseMsg)
-                    {
-                        log($"Received response to join lobby attempt - {joinResponseMsg.Text}");
-                        if (joinResponseMsg.Success)
-                        {
-                            user.IsHost = joinResponseMsg.Host;
-                            user.InLobby = true;
+                JoinLobbyButton.Text = "Join Lobby";
+                JoinLobbyButton.Visible = true;
+                JoinLobbyButton.Enabled = true;
+                JoinLobbyButton.Focus();
+            });
 
-                            UpdateConnectionStatusInLobby();
-
-                            GUI.InvokeControl(ConnectButton, () =>
-                            {
-                                JoinLobbyButton.Text = "Exit Lobby";
-                            });
-
-                            log($"Updated UI after successful lobby entrance");
-
-                            return true;
-                        }
-                        else
-                        {
-                            log($"Join lobby failed. Notifying user");
-                            MessageBox.Show($"Join Lobby Error - {joinResponseMsg.Reason}", "Join Lobby", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        }
-
-                    }
-                    else if (message!.Type == CommMessage.MessageType.CreateLobby && message is CreateLobbyResponseMessage createResponseMsg)
-                    {
-                        log($"Received response to create lobby attempt - {createResponseMsg.Text}");
-                        if (createResponseMsg.Success)
-                        {
-                            log($"Lobby creation succeeded. Notifying user");
-                            MessageBox.Show($"Lobby creation succeeded - please log in", "Create Lobby", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                        }
-                        else
-                        {
-                            log($"Lobby creation failed. Notifying user");
-                            MessageBox.Show($"Lobby creation failed - {createResponseMsg.Reason}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        }
-                    }
-                    else if (message!.Type == CommMessage.MessageType.CommunicationError && message is CommunicationErrorMessage commErrorMsg)
-                    {
-                        log($"Communication error: {commErrorMsg.Error}");
-                        return false;
-                    }
-                }
-            }
-
-            return false;
+            GUI.AppendText($"Please enter existing lobby or create new one", GameLogTextBox, false, true);
         }
 
+        public void UserJoinLobby(bool success, bool isHost, string? reason)
+        {
+            if (success)
+            {
+                User.IsHost = isHost;
+                User.InLobby = true;
+
+                UpdateConnectionStatusInLobby();
+
+                GUI.ActionComponent(JoinLobbyButton, () =>
+                {
+                    JoinLobbyButton.Text = "Exit Lobby";
+                });
+
+                GUI.ActionComponent(ConnectButton, () =>
+                {
+                    ConnectButton.Enabled = false;
+                });
+
+                GUI.ActionComponent(StartGameButton, () =>
+                {
+                    StartGameButton.Visible = true;
+                    StartGameButton.Enabled = false;
+                });
+
+                log($"Updated UI after successful lobby entrance");
+            }
+            else
+            {
+                log($"User failed to join lobby");
+                MessageBox.Show($"Join Lobby Error - {reason}", "Join Lobby", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+      
         private bool EstablishConnection(TcpClient client, CancellationToken token)
         {
             var nws = client.GetStream();
@@ -552,7 +543,6 @@ namespace Client
             writer.WriteLine(PublicKeyMessage.Create(publicKey, 0).Text);
 
             int? myId = null;
-            string? serverPublicKey = null;
             string? aesKey = null;
 
             // Get public key and Id from server
@@ -569,8 +559,7 @@ namespace Client
                     if (parsedMessage.Type == CommMessage.MessageType.PublicKey && parsedMessage is PublicKeyMessage publicKeyMsg)
                     {
                         myId = publicKeyMsg.Id;
-                        serverPublicKey = publicKeyMsg.Key;
-
+                        
                         log($"EstablishConnection - got public key message. My Id: {myId}");
 
                         break;
@@ -579,7 +568,7 @@ namespace Client
             }
             log("EstablishConnection - done getting public key from server");
 
-            if (myId is not null && serverPublicKey is not null)
+            if (myId is not null)
             {
                 logger_ = new Logger($"Client #{myId}");
                 log($"Got public key from server");
@@ -628,17 +617,25 @@ namespace Client
             return false;
         }
 
-        internal void EnableStartGame()
+        internal void EnableStartGame(bool canStart)
         {
-            User.Logger.Log($"EnableStartGame - activate StartGame button");
-            GUI.InvokeControl(StartGameButton, () => { StartGameButton.Visible = true; StartGameButton.Enabled = true; });
+            if (canStart)
+            {
+                User.Logger.Log($"EnableStartGame - activate StartGame button");
+                GUI.ActionComponent(StartGameButton, () => { StartGameButton.Enabled = true; StartGameButton.Focus(); });
+            }
+            else
+            {
+                User.Logger.Log($"EnableStartGame - deactivate StartGame button");
+                GUI.ActionComponent(StartGameButton, () => { StartGameButton.Enabled = false; });
+            }
         }
 
         public void DisplayCards(List<Card> cards)
         {
             void updatePicture(PictureBox pict, Image? image)
             {
-                GUI.InvokeControl(pict, () =>
+                GUI.ActionComponent(pict, () =>
                 {
                     pict.Image = image;
                     pict.Invalidate();
@@ -661,18 +658,13 @@ namespace Client
 
         public void ClearCardDisplay()
         {
-            void clearPicture(PictureBox pict)
-            {
-                GUI.InvokeControl(pict, () =>
-                {
-                    pict.Image = null;
-                    pict.Invalidate();
-                });
-            }
-
             foreach (var pb in cardPictures)
             {
-                clearPicture(pb);
+                GUI.ActionComponent(pb, () =>
+                {
+                    pb.Image = null;
+                    pb.Invalidate();
+                });
             }
         }
 
@@ -692,7 +684,7 @@ namespace Client
         {
             var pb = cardPictures[index];
 
-            GUI.InvokeControl(pb, () =>
+            GUI.ActionComponent(pb, () =>
             {
                 var grayedImage = GUI.MakeGrayscale(pb.Image);
                 pb.Image = grayedImage;
@@ -722,7 +714,7 @@ namespace Client
 
         void UpdateConnectionStatus(string text, Color color)
         {
-            GUI.InvokeControl(ConnectionStatusLabel, () =>
+            GUI.ActionComponent(ConnectionStatusLabel, () =>
            {
                ConnectionStatusLabel.Text = text;
                ConnectionStatusLabel.ForeColor = color;
@@ -779,7 +771,7 @@ namespace Client
                 GUI.AppendText(userInput, ChatBox, false, true);
             }
 
-            GUI.InvokeControl(ChatInputBox, () =>
+            GUI.ActionComponent(ChatInputBox, () =>
             {
                 ChatInputBox.Text = "";
                 ChatInputBox.Select(0, 0);
@@ -866,17 +858,26 @@ namespace Client
         {
             if (game_ is null)
             {
-                var response = StartGameServerMessage.Create();
-                WriteToServer(response);
+                log($"Send start game message to server");
 
-                log($"Send Start Game message to server");
+                var response = StartGameServerMessage.Create();
+                WriteToServer(response);                
             }
             else
             {
+                log($"Send interupt game message to server");
+
                 var response = InterruptGameMessage.Create(User.Name);
                 WriteToServer(response);
             }
+        }
 
+        public void ShutDown()
+        {
+            cts_.Cancel();
+            User.ShutDown();
+
+            Application.Exit();
         }
     }
 }

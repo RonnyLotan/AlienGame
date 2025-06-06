@@ -29,37 +29,53 @@ namespace Server
                 return;
             }
 
-            if (msg.Type == CommMessage.MessageType.BroadcastChat && (msg is BroadcastChatServerMessage broadcastChatMsg))
+            switch (msg.Type)
             {
-                // A chat message was received from one of the users. Need to broadcast to everyone else.
-                var response = ReceiveChatClientMessage.Create(sender.Name!, broadcastChatMsg.Msg);
-
-                log($"Broadcast the chat message to all players except the sender");
-                foreach (var user in lobby_.GetGuestUsers())
-                {
-                    if (sender.Name != user.Name)
+                case CommMessage.MessageType.BroadcastChat:
+                    if (msg is BroadcastChatServerMessage broadcastChatMsg)
                     {
-                        lobby_.WriteUser(user.Id, response);
-                        log($"Sent {response} to player: {user}");
+                        // A chat message was received from one of the users. Need to broadcast to everyone else.
+                        var response = ReceiveChatClientMessage.Create(sender.Name!, broadcastChatMsg.Msg);
+
+                        log($"Broadcast the chat message to all players except the sender");
+                        foreach (var user in lobby_.GetGuestUsers())
+                        {
+                            if (sender.Name != user.Name)
+                            {
+                                lobby_.WriteUser(user.Id, response);
+                                log($"Sent {response} to player: {user}");
+                            }
+                        }
+
+                        log($"Sent {CommMessage.MessageType.ReceiveChat} message to all players");
+
+                        return;
                     }
-                }
+                    break;
 
-                log($"Sent {CommMessage.MessageType.ReceiveChat} message to all players");
+                case CommMessage.MessageType.StartGame:
+                    if (msg is StartGameServerMessage startGameMsg)
+                    {
+                        log($"LobbyMessageHandler: Received Start Game messagefrom {sender}");
 
-                return;
-            }
-            else if (msg.Type == CommMessage.MessageType.StartGame && (msg is StartGameServerMessage startGameMsg))
-            {
-                log($"LobbyMessageHandler: Received Start Game messagefrom {sender}");
+                        // Start the game only if the host requested it. Otherwise do nothing.
+                        if (sender.Name == lobby_.Host)
+                        {
+                            lobby_.StartGame();
+                            log($"LobbyMessageHandler: Starting a game");
+                        }
 
-                // Start the game only if the host requested it. Otherwise do nothing.
-                if (sender.Name == lobby_.Host)
-                {
-                    lobby_.StartGame();
-                    log($"LobbyMessageHandler: Starting a game");
-                }
+                        return;
+                    }
+                    break;
 
-                return;
+                case CommMessage.MessageType.ExitLobbyRequest:
+                    if (msg is ExitLobbyRequestServerMessage exitMsg)
+                    {
+                        lobby_.ExitLobbyRequest(exitMsg.UserName);
+                        return;
+                    }
+                    break;
             }
 
             // All messages below are ignored if game is not in progress
@@ -69,7 +85,7 @@ namespace Server
                 if (!lobby_.GameInProgress)
                     return;
 
-                game = lobby_.Game!;
+                game = lobby_.Game;
             }
 
             switch (msg.Type)
@@ -145,13 +161,6 @@ namespace Server
                         lobby_.NotifyClientsOfInterrupt(interruptMsg);
 
                         lobby_.EndGame();
-                    }
-                    break;
-
-                case CommMessage.MessageType.ExitLobbyRequest:
-                    if (msg is ExitLobbyRequestServerMessage exitMsg)
-                    {
-                        lobby_.ExitLobbyRequest(exitMsg.UserName);
                     }
                     break;
 

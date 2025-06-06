@@ -16,7 +16,7 @@ namespace Shared
 
     public class GUI
     {
-        public static void InvokeControl(Control c, Action act)
+        public static void ActionComponent(Control c, Action act)
         {
             if (c.InvokeRequired)
             {
@@ -30,7 +30,7 @@ namespace Shared
 
         public static void AppendText(string line, RichTextBox rtb, bool bold, bool newLine)
         {
-            InvokeControl(rtb, () =>
+            ActionComponent(rtb, () =>
             {
                 if (bold)
                 {
@@ -51,7 +51,7 @@ namespace Shared
 
         public static void Update(string line, Label lbl)
         {
-            InvokeControl(lbl, () =>
+            ActionComponent(lbl, () =>
             {
                 lbl.Text = line;
             });

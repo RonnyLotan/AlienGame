@@ -11,7 +11,7 @@ namespace Client
     internal class UserData
     {
         public readonly int Id;
-        public TcpClient Socket { get; init; }
+        public TcpClient Client { get; init; }
         private NetworkStream nws_;
         public MyReader Reader { get; init; }
         public MyWriter Writer { get; init; }
@@ -36,12 +36,13 @@ namespace Client
         }
 
         public bool IsHost = false;
+        public bool Connected = false;
         public bool InLobby = false;
 
         internal UserData(int id, TcpClient socket, NetworkStream nws, string aesKey, Logger logger)
         {
             Id = id;
-            Socket = socket;
+            Client = socket;
 
             logger.Log("Constructing UserData");
             nws_ = nws;
@@ -62,6 +63,16 @@ namespace Client
         public void ResetName()
         {
             name_ = null;
+        }
+
+        public void ShutDown()
+        {
+            Logger.Log("Shutting down the UserData");
+
+            Writer.Close();
+            Reader.Close();
+            nws_.Close();
+            Client.Close();
         }
     }
 }

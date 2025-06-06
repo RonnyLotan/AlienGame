@@ -22,6 +22,8 @@ namespace Client
             base.Dispose(disposing);
         }
 
+        private static string FormHeader = "Alien Game Client";
+
         #region Windows Form Designer generated code
 
         /// <summary>
@@ -73,6 +75,7 @@ namespace Client
             JoinLobbyButton.Text = "Join Lobby";
             JoinLobbyButton.UseVisualStyleBackColor = true;
             JoinLobbyButton.Click += JoinLobbyButton_Click;
+            JoinLobbyButton.Visible = false;
             // 
             // CardPicture1
             // 
@@ -229,7 +232,7 @@ namespace Client
             Controls.Add(JoinLobbyButton);
             Controls.Add(ConnectButton);
             Name = "Client";
-            Text = "Alien Game Client";
+            Text = FormHeader;
             Load += LoadAsync;
             ((System.ComponentModel.ISupportInitialize)CardPicture1).EndInit();
             ((System.ComponentModel.ISupportInitialize)CardPicture2).EndInit();

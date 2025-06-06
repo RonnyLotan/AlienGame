@@ -34,9 +34,7 @@ namespace Server
             {
                 name_ = value;
             }
-        }
-        public string? HashedPassword { get; set; }
-        public string? PublicKey { get; set; }
+        }        
 
         public bool LoggedIn { get => name_ is not null; }
 
@@ -58,6 +56,8 @@ namespace Server
         }
         public bool InLobby { get => lobby_ is not null;  }
 
+        public string? PublicKey { get; set; }
+
         public UserData(TcpClient client, int id)
         {
             Client = client;
@@ -67,8 +67,8 @@ namespace Server
             Reader = new MyReader(sessionAesKey, nws_);
             Writer = new MyWriter(sessionAesKey, nws_) ;
 
-            HashedPassword = null;
             PublicKey = null;
+            name_ = null;
             lobby_ = null;
 
             Id = id;
@@ -79,6 +79,11 @@ namespace Server
             lobby_ = null;
         }
 
+        public void ResetName()
+        {
+            name_ = null;
+        }
+
         public override string ToString()
         {
             return $"#{Id}|{name_ ?? ""}";
@@ -87,6 +92,7 @@ namespace Server
         public void Close()
         {
             Client.Close();
+            nws_.Close();
             Reader.Close(); 
             Writer.Close();
         }

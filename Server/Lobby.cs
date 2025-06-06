@@ -10,6 +10,7 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
+using System.Xml.Linq;
 
 namespace Server
 {
@@ -95,54 +96,106 @@ namespace Server
             }
         }
 
+        private void CloseLobby(string msg)
+        {
+            List<ClientHandler> guests;
+
+            // Get list of users and terminate the message loop
+            lock (UpdateLock)
+            {
+                log($"Clear the guest list and send cancel signal to loop");
+                guests = guestInfo_.Values.ToList();
+                
+                cts_.Cancel();
+            }
+
+            log($"Send game log message to all users that the lobby is closing");
+            var logMsg = GameLogClientMessage.Create(msg);
+            foreach (var guest in guests)
+            {
+                // Send the message to all guests in the lobby
+                if (guest.User.Name != Host)
+                {
+                    WriteUser(guest.Id, logMsg);
+                }
+            }
+
+            // Notify all users that the lobby is closing
+            log($"Notify all guests that the Lobby is closing");
+            var exitMsg = LobbyClosingClientMessage.Create();
+            foreach (var guest in guests)
+            {
+                var user = guest.User;
+                if (user.Name != Host)
+                    WriteUser(user.Id, exitMsg);
+
+                user.ResetLobby();
+                guest.Start();
+            }
+
+            server_.PurgeLobby(Name);
+        }
+
+        private void RemoveGuest(string msg, string leaver)
+        {
+            List<ClientHandler> guests;
+
+            lock (UpdateLock)
+            {
+                // Remove the guest from the dictionary of guests
+                var match = guestInfo_.FirstOrDefault(kv => kv.Value.User.Name == leaver);
+                if (!match.Equals(default(KeyValuePair<int, ClientHandler>)))
+                {
+                    var id = match.Key;
+                    var handler = match.Value;
+
+                    log($"RemoveGuest - remove guest from dictionaries and start client handler loop");
+                    guestInfo_.Remove(id);
+
+                    if (handler != null)
+                    {
+                        socketToClientDict_.Remove(handler.User.Client.Client);
+                        handler.Start();
+                    }
+                    else
+                        log($"RemoveGuest - the removed guest handler is null");
+                }
+
+                guests = guestInfo_.Values.ToList();
+            }
+
+            // Send the message to all guests remaining in the lobby
+            var logMsg = GameLogClientMessage.Create(msg);
+            foreach (var c in guests)
+                WriteUser(c.Id, logMsg);
+
+            lock (UpdateLock)
+            {
+                var canStart = guests.Count >= MIN_NUMBER_OF_PLAYERS;
+
+                WriteUser(hostInfo_.Id, CanStartGameClientMessage.Create(canStart));
+                log($"Notify host if game can start");
+            }
+        }
+
         public void ExitLobbyRequest(string name)
         {
             if (name == Host)
             {
                 log($"ExitLobbyRequest - host <{name}> is leaving the lobby");
-                BroadcastGameLogMessage($"The host {name} left. Lobby is closing!");
-                
-                List<ClientHandler> guests;
 
-                // Shut down the lobby by removing all users and terminating its message loop
-                lock (UpdateLock)
-                {
-                    guests = guestInfo_.Values.ToList();
-                    guestInfo_.Clear();
+                var logMsg = $"The host {name} left. Lobby {Name} is closing!";
 
-                    cts_.Cancel();
-                }
-
-                // Notify all users that the lobby is closing
-                var exitMsg = LobbyClosingClientMessage.Create();
-                foreach (var guest in guests)
-                {
-                    var user = guest.User;
-                    if (user.Name !=  name)
-                        WriteUser(user.Id, exitMsg);
-
-                    user.ResetLobby();
-                    guest.Start();
-                }
+                CloseLobby(logMsg);
             }
             else
             {
-                log($"ExitLobbyRequest - guest <{name}> left the lobby");
-                BroadcastGameLogMessage($"The guest {name} left the lobby");
+                var logMsg = $"The guest {name} left the lobby";
 
-                lock (UpdateLock)
-                {
-                    var keysToRemove = guestInfo_.Where(kvp => kvp.Value.User.Name == name)
-                       .Select(kvp => kvp.Key)
-                       .ToList();
+                RemoveGuest(logMsg, name);
 
-                    guestInfo_.Remove(keysToRemove.First());
-
-                    var canStart = guestInfo_.Count >= MIN_NUMBER_OF_PLAYERS;
-
-                    WriteUser(hostInfo_.Id, CanStartGameClientMessage.Create(canStart));
-                    log($"Notify host if game can start");
-                }
+                if (GameInProgress)
+                    EndGame();
             }
         }
 
@@ -283,12 +336,6 @@ namespace Server
             trd.Start();
         }
 
-        public void Stop(String reason)
-        {
-            log($"Closing the lobby: {reason}, Game State: {this}");
-            cts_.Cancel();
-        }
-
         public void WriteUser(int id, CommMessage message)
         {
             log($"WriteUser - sending user #{id}: {message.Text}");
@@ -300,48 +347,19 @@ namespace Server
 
         public void HandleUserLeft(ClientHandler client, bool isError)
         {
-            server_.DisconnectUser(client);
-
-            void close_lobby(GameLogClientMessage msg)
-            {
-                foreach (var c in guestInfo_.Values)
-                {
-                    // Send the message to all guests in the lobby
-                    if (c.User.Name != Host)
-                    {
-                        WriteUser(c.Id, msg);
-                        c.Start();
-                    }
-                }
-
-                cts_.Cancel(true);
-                server_.PurgeLobby(this);
-            }
-
-            void close_game(GameLogClientMessage msg)
-            {
-                foreach (var c in guestInfo_.Values)
-                {
-                    // Send the message to all guests in the lobby
-                    if (c.User.Name != Host)
-                    {
-                        WriteUser(c.Id, msg);
-                    }
-                }
-
-                EndGame();
-            }
-
             if (client.User.Name == Host)
             {
-                var msg = GameLogClientMessage.Create($"The host {Host} has left the Loby {(isError ? "because of error" : "")}. Everyone must exit.");
-                close_lobby(msg);
+                CloseLobby($"The host {Host} has left the Loby {(isError ? "because of error" : "")}. Everyone must exit.");
             }
             else
             {
-                var msg = GameLogClientMessage.Create($"The guest {client.User.Name} has left the Loby {(isError ? "because of error" : "")}.");
-                close_game(msg);
+                if (GameInProgress)
+                    EndGame();
+
+                RemoveGuest($"The guest {client.User.Name} has left the Loby {(isError ? "because of error" : "")}.", client.User.Name);
             }
+
+            server_.DisconnectUser(client);
         }
 
         private void MessageLoop(CancellationToken token)
@@ -361,6 +379,12 @@ namespace Server
                 // Use Select to wait for any socket ready to read
                 Socket.Select(readSockets, null, null, 1000 * 1000); // Timeout in microseconds
 
+                if (readSockets.Count > 0)
+                {
+                    log($"Received messages on {readSockets.Count} sockets");
+                }
+
+                var i = 1;
                 foreach (Socket socket in readSockets)
                 {
                     // Handle existing client
@@ -371,7 +395,7 @@ namespace Server
                     }
 
                     var user = client.User;
-                    log($"Received message from user <{user}>");
+                    log($"#{i} message received from user <{user}>");
                     try
                     {
                         CommMessage? message;
@@ -380,7 +404,20 @@ namespace Server
                             if (message is not null)
                             {
                                 log($"MessageLoop - received message: {message.Text}");
-                                messageHandler.Handle(message, user);
+                                try
+                                {
+                                    messageHandler.Handle(message, user);
+                                }
+                                catch (Exception e)
+                                {
+                                    log($"Caught error handling message for user <{user}>: {e.Message}");
+
+                                    var reply = CommunicationErrorMessage.Create(e.Message);
+                                    WriteUser(user.Id, reply);
+
+                                    HandleUserLeft(client, false);
+                                    break;
+                                }
                             }
                         }
                         else
@@ -396,8 +433,12 @@ namespace Server
                         log($"User <{user}> had an error: {e.Message}");
                         HandleUserLeft(client, true);
                     }
+
+                    i++;
                 }
             }
+
+            log($"exiting message loop");
         }
     }
 }

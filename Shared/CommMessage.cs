@@ -25,7 +25,7 @@ namespace Shared
             CreateLobby = 113,
             CanStartGame = 114,
             AnnounceWinner = 115,
-            LobbyClosing = 116,
+            LobbyClosing = 116,            
 
             // Messages from clients to server
             BroadcastChat = 200,
@@ -36,6 +36,7 @@ namespace Shared
             JoinLobbyRequest = 205,
             ExitLobbyRequest = 206,
             StartGame = 207,
+            Logout = 208,
 
             // Messages for both directions
             ResponseToOffer = 300,
@@ -47,7 +48,6 @@ namespace Shared
             ParseError = 900,
             UnrecognizedMessageTypeError = 901,
             MessageBodyError = 902,
-            PlayerQuitError = 903,
             EncryptionError = 904,
             CommunicationError = 905
         }
@@ -114,7 +114,7 @@ namespace Shared
                     case MessageType.AesKey: return AesKeyMessage.FromText(msgBody);
                     case MessageType.CanStartGame: return CanStartGameClientMessage.FromText(msgBody);
                     case MessageType.AnnounceWinner: return AnnounceWinnerClientMessage.FromText(msgBody);
-                    case MessageType.LobbyClosing: return LobbyClosingClientMessage.FromText(msgBody);
+                    case MessageType.LobbyClosing: return LobbyClosingClientMessage.FromText(msgBody);                    
 
                     // Messages from clients to server
                     case MessageType.BroadcastChat: return BroadcastChatServerMessage.FromText(msgBody);
@@ -125,6 +125,7 @@ namespace Shared
                     case MessageType.ExitLobbyRequest: return ExitLobbyRequestServerMessage.FromText(msgBody);
                     case MessageType.CreateLobbyRequest: return CreateLobbyRequestServerMessage.FromText(msgBody);
                     case MessageType.StartGame: return StartGameServerMessage.FromText(msgBody);
+                    case MessageType.Logout: return LogoutServerMessage.FromText(msgBody);
 
                     // Messages for both directions
                     case MessageType.ResponseToOffer: return ResponseToOfferMessage.FromText(msgBody);
@@ -605,7 +606,7 @@ namespace Shared
     // Server letting clients know the lobby is closing
     public class LobbyClosingClientMessage : CommMessage
     {
-        private static MessageType type_ = MessageType.CanStartGame;
+        private static MessageType type_ = MessageType.LobbyClosing;
 
         public static CommMessage FromText(string msgBody)
         {
@@ -623,7 +624,7 @@ namespace Shared
 
         public override MessageType Type => type_;
         public override string Text => base.Text;
-    }
+    }    
 
     // Message sent by the server to update the game log at the clients
     // Message to let client know they are receiving a chat message    
@@ -915,6 +916,8 @@ namespace Shared
 
         public override MessageType Type => type_;
 
+        public override string Text => base.Text + UserName;
+
         public string UserName;
     }
 
@@ -936,6 +939,28 @@ namespace Shared
         }
 
         public override MessageType Type => type_;
+    }
+
+    // Client letting the server know it is logging out.
+    public class LogoutServerMessage : CommMessage
+    {
+        private static MessageType type_ = MessageType.Logout;
+
+        public static CommMessage FromText(string msgBody)
+        {
+            return Create();
+        }
+
+        public static LogoutServerMessage Create()
+        {
+            return new LogoutServerMessage();
+        }
+
+        private LogoutServerMessage()
+        {
+        }
+
+        public override MessageType Type => type_;        
     }
 
     //
@@ -978,7 +1003,7 @@ namespace Shared
     // Tell the server or the clients that a user has interrupted the game
     public class InterruptGameMessage : CommMessage
     {
-        private static MessageType type_ = MessageType.StartGame;
+        private static MessageType type_ = MessageType.InterruptGame;
 
         public static CommMessage FromText(string msgBody)
         {
@@ -996,6 +1021,8 @@ namespace Shared
         }
 
         public override MessageType Type => type_;
+
+        public override string Text => base.Text + UserName;
 
         public string UserName;
     }

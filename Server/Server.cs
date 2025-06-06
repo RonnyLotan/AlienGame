@@ -8,18 +8,18 @@ namespace Server
     public partial class Server : Form
     {
         private TcpListener listener_;
-        
+
         private CancellationTokenSource cts_;
 
         private List<ClientHandler> clients_;
         public List<ClientHandler> Clients { get => clients_; }
 
         private Dictionary<string, Lobby> lobbies_;
-        public Dictionary<string, Lobby> Lobbies {  get => lobbies_; }
+        public Dictionary<string, Lobby> Lobbies { get => lobbies_; }
 
         public string PrivateKey;
-        public string PublicKey;      
-        
+        public string PublicKey;
+
         Logger logger_;
 
         public Server()
@@ -46,7 +46,7 @@ namespace Server
             client.User.Close();
             lock (Clients)
             {
-                Clients.Remove(client);                
+                Clients.Remove(client);
             }
         }
 
@@ -91,7 +91,7 @@ namespace Server
             lock (Lobbies)
             {
                 lobby = new Lobby(name, guest, this);
-                Lobbies.Add(name, lobby); 
+                Lobbies.Add(name, lobby);
                 lobby.Start();
             }
 
@@ -138,31 +138,46 @@ namespace Server
                 readSockets.Add(listener_.Server);
 
                 // Use Select to wait for any socket ready to read
-                Socket.Select(readSockets, null, null, 1000 * 1000); // Timeout in microseconds
+                try
+                {
+                    Socket.Select(readSockets, null, null, 1000 * 1000); // Timeout in microseconds
+                }
+                catch (Exception ex)
+                {
+                    logger_.Log($"Error in Select function: {ex.Message}");
+                    MessageBox.Show($"Server fatal error: {ex.Message}\n Quitting!!", "Fatal Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    break;
+                }
 
                 foreach (Socket socket in readSockets)
                 {
                     if (socket == listener_.Server)
                     {
-                        _ = logger_.Log($"A new client has connected");
+                        logger_.Log($"A new client has connected");
 
                         // Accept new client
                         var handler = new ClientHandler(listener_.AcceptTcpClient(), this);
-                        
-                        _ = logger_.Log($"New client connected: #{handler.Id}");
+
+                        logger_.Log($"New client connected: #{handler.Id}");
+
+                        AddClient(handler);
+
+                        var msg = PublicKeyMessage.Create(PublicKey, handler.Id);
+                        handler.User.Writer.WriteMessage(msg, false);
 
                         handler.Start();
                     }
-                    
+
                 }
             }
         }
 
-        internal void PurgeLobby(Lobby lobby)
+        internal void PurgeLobby(string name)
         {
+            logger_.Log($"Lobby <{name}> is closing");
             lock (lobbies_)
             {
-                lobbies_.Remove(lobby.Name);
+                lobbies_.Remove(name);
             }
         }
     }
