@@ -70,6 +70,7 @@ namespace Shared
             }
         }
 
+
         public static string GenerateAesKey()
         {
             using (var aes = Aes.Create())

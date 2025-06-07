@@ -23,7 +23,7 @@ namespace Server
         {
             log($"LobbyMessageHandler: Received message {msg.Text} from {sender}");
 
-            if (msg.isError())
+            if (msg.IsError())
             {
                 HandleError(msg, sender);
                 return;

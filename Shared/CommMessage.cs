@@ -72,7 +72,7 @@ namespace Shared
         public abstract MessageType Type { get; }
         public virtual string Text => $"{Type}|";
 
-        public bool isError()
+        public bool IsError()
         {
             return (int)Type >= 900;
         }
@@ -1121,14 +1121,14 @@ namespace Shared
 
         private ParseErrorMessage(string rawMessage)
         {
-            rawMessage_ = rawMessage;
+            RawMessage = rawMessage;
         }
 
         public override MessageType Type => type_;
 
-        public override string Text => base.Text + rawMessage_;
+        public override string Text => base.Text + RawMessage;
 
-        private string rawMessage_;
+        public string RawMessage;
     }
 
     // Message to report that an unrecognized message type was received
@@ -1153,16 +1153,16 @@ namespace Shared
 
         private UnrecognizedMessageTypeErrorMessage(string type, string msgBody)
         {
-            unknownType_ = type;
-            msgBody_ = msgBody;
+            UnknownType = type;
+            MsgBody = msgBody;
         }
 
         public override MessageType Type => type_;
 
-        public override string Text => base.Text + $"{unknownType_};{msgBody_}";
+        public override string Text => base.Text + $"{UnknownType};{MsgBody}";
 
-        private string unknownType_;
-        private string msgBody_;
+        public string UnknownType;
+        public string MsgBody;
     }
 
     // Message to report that the body of the message received could not be parsed
@@ -1218,14 +1218,14 @@ namespace Shared
 
         private EncryptionErrorMessage(string reason)
         {
-            reason_ = reason;
+            Reason = reason;
         }
 
         public override MessageType Type => type_;
 
-        public override string Text => base.Text + reason_;
+        public override string Text => base.Text + Reason;
 
-        private string reason_;
+        public string Reason;
     }
 
     // Message to report a communication error

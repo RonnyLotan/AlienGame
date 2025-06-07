@@ -45,7 +45,7 @@ namespace Client
             }
         }
 
-        private List<PictureBox> cardPictures;
+        private List<PictureBox> cardPictures_;
 
         Logger logger_;
 
@@ -54,7 +54,7 @@ namespace Client
             InitializeComponent();
 
             cts_ = new CancellationTokenSource();
-            cardPictures = new List<PictureBox>() { CardPicture1, CardPicture2, CardPicture3, CardPicture4, CardPicture5 };
+            cardPictures_ = new List<PictureBox>() { CardPicture1, CardPicture2, CardPicture3, CardPicture4, CardPicture5 };
 
             logger_ = new Logger($"Unknown Client");
         }
@@ -172,7 +172,7 @@ namespace Client
 
         public void ActivateNotYourTurnMode()
         {
-            foreach (PictureBox pictureBox in cardPictures)
+            foreach (PictureBox pictureBox in cardPictures_)
             {
                 GUI.ActionComponent(pictureBox, () =>
                 {
@@ -198,7 +198,7 @@ namespace Client
 
         public void ActivateMakeOfferMode(List<int> rejectedCardIndices)
         {
-            foreach (PictureBox pictureBox in cardPictures)
+            foreach (PictureBox pictureBox in cardPictures_)
             {
                 GUI.ActionComponent(pictureBox, () =>
                 {
@@ -209,10 +209,10 @@ namespace Client
 
             foreach (int i in rejectedCardIndices)
             {
-                GUI.ActionComponent(cardPictures[i], () =>
+                GUI.ActionComponent(cardPictures_[i], () =>
                 {
-                    cardPictures[i].Enabled = false;
-                    cardPictures[i].Invalidate();
+                    cardPictures_[i].Enabled = false;
+                    cardPictures_[i].Invalidate();
                 });
             }
 
@@ -647,18 +647,18 @@ namespace Client
             int i = 0;
             foreach (Card c in cards)
             {
-                updatePicture(cardPictures[i++], c.Picture);
+                updatePicture(cardPictures_[i++], c.Picture);
             }
 
-            if (i < cardPictures.Count)
+            if (i < cardPictures_.Count)
             {
-                updatePicture(cardPictures[i], null);
+                updatePicture(cardPictures_[i], null);
             }
         }
 
         public void ClearCardDisplay()
         {
-            foreach (var pb in cardPictures)
+            foreach (var pb in cardPictures_)
             {
                 GUI.ActionComponent(pb, () =>
                 {
@@ -682,7 +682,7 @@ namespace Client
 
         public void DisableRejectedCard(int index)
         {
-            var pb = cardPictures[index];
+            var pb = cardPictures_[index];
 
             GUI.ActionComponent(pb, () =>
             {
@@ -741,10 +741,10 @@ namespace Client
             GUI.Update(text, StatusLabel);
         }
 
-        private void WriteToServer(CommMessage message, bool encrypt = true)
+        private void WriteToServer(CommMessage message)
         {
             log($"Sending mesage to server: <{message.Text}>");
-            User.Writer.WriteMessage(message, encrypt);
+            User.Writer.WriteMessage(message, true);
         }
 
         private void ChatInputBox_KeyUp(object sender, KeyEventArgs e)
@@ -809,14 +809,14 @@ namespace Client
             {
                 var index = Game.OfferedCardIndex.Value;
                 Game.OfferedCardIndex = null;
-                cardPictures[index].Invalidate();
+                cardPictures_[index].Invalidate();
             }
 
             // Set new selected
             var selectedPictureBox = sender as PictureBox;
-            for (int i = 0; i < cardPictures.Count; i++)
+            for (int i = 0; i < cardPictures_.Count; i++)
             {
-                if (cardPictures[i] == selectedPictureBox)
+                if (cardPictures_[i] == selectedPictureBox)
                 {
                     Game.OfferedCardIndex = i;
                     break;
@@ -843,7 +843,7 @@ namespace Client
             {
                 if (Game.OfferedCardIndex is not null)
                 {
-                    if (pb == cardPictures[Game.OfferedCardIndex.Value])
+                    if (pb == cardPictures_[Game.OfferedCardIndex.Value])
                     {
                         using (Pen pen = new Pen(Color.Red, 3))
                         {

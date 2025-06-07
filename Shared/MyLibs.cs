@@ -259,6 +259,38 @@ namespace Shared
         {
             return str == m.ToString();
         }
+
+        public static bool IsServerRunning()
+        {
+            using (var client = new UdpClient())
+            {
+                client.EnableBroadcast = true;
+                var serverEndpoint = new IPEndPoint(IPAddress.Broadcast, 6000);
+                
+                try
+                {
+                    // Send broadcast message asking if server exists
+                    byte[] requestData = strTobit(Msg.canIbeTheServer);
+                    client.Send(requestData, requestData.Length, serverEndpoint);
+                    
+                    // Set a short timeout for the response
+                    client.Client.ReceiveTimeout = 1000;
+                    
+                    // Try to receive a response
+                    IPEndPoint remoteEndpoint = new IPEndPoint(IPAddress.Any, 0);
+                    byte[] responseData = client.Receive(ref remoteEndpoint);
+                    
+                    // If we get a deny message, it means a server exists
+                    return equal(Msg.denay, responseData);
+                }
+                catch (SocketException)
+                {
+                    // If we timeout without receiving a response, no server exists
+                    return false;
+                }
+            }
+        }
+
         public static bool canBeServer()
         {
 

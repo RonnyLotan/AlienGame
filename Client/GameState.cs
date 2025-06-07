@@ -52,35 +52,41 @@ namespace Client
             {
                 logger_.Log($"Player mode changing from <{playerMode_}> to <{value}>");
                 playerMode_ = value;
-                switch (playerMode_)
-                {
-                    case Mode.NotMyTurn:
-                        OfferedCardIndex = null;
-                        RejectedCardIndices.Clear();
-                        ReceiverName = null;
-                        NumRejections = 0;
-                        ReceivedCard = null;
+                
+                OnUpdatePlayerMode();
+            }
+        }
 
-                        client_.ActivateNotYourTurnMode();
+        private void OnUpdatePlayerMode()
+        {
+            switch (playerMode_)
+            {
+                case Mode.NotMyTurn:
+                    OfferedCardIndex = null;
+                    RejectedCardIndices.Clear();
+                    ReceiverName = null;
+                    NumRejections = 0;
+                    ReceivedCard = null;
 
-                        break;
+                    client_.ActivateNotYourTurnMode();
 
-                    case Mode.MakeOffer:
-                        client_.ActivateMakeOfferMode(RejectedCardIndices);
-                        break;
+                    break;
 
-                    case Mode.WaitForReponse:
-                        client_.ActivateAwaitResponseMode();   
-                        break;
+                case Mode.MakeOffer:
+                    client_.ActivateMakeOfferMode(RejectedCardIndices);
+                    break;
 
-                    case Mode.AwaitOffer:
-                        client_.ActivateAwaitOfferMode();
-                        break;
+                case Mode.WaitForReponse:
+                    client_.ActivateAwaitResponseMode();
+                    break;
 
-                    case Mode.NeedToReply:
-                        client_.ActivateNeedToReplyMode();
-                        break;                    
-                }
+                case Mode.AwaitOffer:
+                    client_.ActivateAwaitOfferMode();
+                    break;
+
+                case Mode.NeedToReply:
+                    client_.ActivateNeedToReplyMode();
+                    break;
             }
         }
 
