@@ -51,7 +51,7 @@ namespace Server
             return $"Receiver: {Receiver}, Giver: {Giver}, #Rejects: {NumRejections}, State: {State}, Players: {string.Join(';', Players)}";
         }
 
-        public void advanceGameState()
+        public void AdvanceGameState()
         {
             // move card from giver to receiver 
             if (OfferedCard is not null)

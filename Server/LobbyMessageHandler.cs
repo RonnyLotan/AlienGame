@@ -121,7 +121,7 @@ namespace Server
                                     log($"Sent {CommMessage.MessageType.ResponseToOffer} message to Giver <{giver.Name}>");
 
                                     // Advance game state
-                                    game.advanceGameState();
+                                    game.AdvanceGameState();
 
                                     if (!lobby_.CheckGameOver())
                                         lobby_.NotifyClientsOfNewTurn();
@@ -181,7 +181,7 @@ namespace Server
 
                                     lobby_.BroadcastGameLogMessage($"{receiver.Name} accepted card from {game.Giver.Name}");
 
-                                    game.advanceGameState();
+                                    game.AdvanceGameState();
 
                                     // Let giver know the offer was accepted
                                     lobby_.WriteUser(giver.Id, msg);
