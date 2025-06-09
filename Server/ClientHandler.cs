@@ -41,7 +41,7 @@ namespace Server
             log($"ClientHandler for user <{User}> is starting");
             new Thread(() => ClientLoop()) { IsBackground = true }.Start();
         }
-        
+
         void ClientLoop()
         {
             try
@@ -84,107 +84,111 @@ namespace Server
         {
             log($"ClientHandler: Received message {msg.Text}");
 
-            switch (msg.Type)
+            if (!User.EstablishedEncryption)
             {
-                case CommMessage.MessageType.PublicKey:
-                    if (msg is PublicKeyMessage keyMsg)
-                    {
-                        User.PublicKey = keyMsg.Key;
-                        log($"Public key {User.PublicKey} received from client #{User.Id}");
+                if (msg.Type == CommMessage.MessageType.AesKey && msg is AesKeyMessage aesMsg)
+                {
+                    User.SetSessionAesKey(Encryption.RsaDecrypt(aesMsg.Key, Global.PRIVATE_KEY));
+                    log($"Received AES key: <{User.Writer.SessionAesKey}>");
+                }
 
-                        User.Writer.sendAesKey(keyMsg.Key);
-                        log($"AES encryption key sent to user #{User.Id}");
-                    }
-                    break;
+                return;
+            }
 
-                case CommMessage.MessageType.LoginRequest:
-                    if (msg is LoginRequestServerMessage loginMsg)
-                    {
-                        if (!User.Writer.EncryptionEstablished)
+            if (!User.LoggedIn)
+            {
+                switch (msg.Type)
+                {
+                    case CommMessage.MessageType.LoginRequest:
+                        if (msg is LoginRequestServerMessage loginMsg)
                         {
-                            var response = LoginResponseMessage.Create(false, "Encryption has not been established. Please send public key");
-                            User.Writer.WriteMessage(response);
-                            log($"User {User} has not established encryption");
-                        }
-                        else if (server_.IsClientLoggedIn(loginMsg.UserName))
-                        {
-                            var response = LoginResponseMessage.Create(false, "This user is already logged in");
-                            User.Writer.WriteMessage(response);
-                            log($"User {User} has already logged in");
-                        }
-                        else
-                        {
-                            Shared.User? user = null;
-                            try
+                            if (server_.IsClientLoggedIn(loginMsg.UserName))
                             {
-                                user = Jsn.getUser(loginMsg.UserName);
-                            }
-                            catch (Exception ex)
-                            {
-                                var reply = LoginResponseMessage.Create(false, $"Login failed with error - {ex.Message}");
-                                User.Writer.WriteMessage(reply);
-                                log($"User {User} failed to logged in with error: {ex.Message}");
-                                return;
-                            }
-
-                            if (user != null && user.HashedPassword == Encryption.ComputeHash(loginMsg.Password, user.Salt))
-                            {
-                                User.Name = user.Name;
-
-                                var reply = LoginResponseMessage.Create(true, null);
-                                User.Writer.WriteMessage(reply);
-
-                                log($"User {User}|{user.Name} has logged in successfully");
+                                var response = LoginResponseMessage.Create(false, "This user is already logged in");
+                                User.Writer.WriteMessage(response);
+                                log($"User {User} has already logged in");
                             }
                             else
                             {
-                                string reason = user is null ? "Wrong user name" : "Wrong password";
-                                var reply = LoginResponseMessage.Create(false, reason);
-                                User.Writer.WriteMessage(reply);
-                                log($"User {User} failed to log in: {reason}");
+                                Shared.User? user = null;
+                                try
+                                {
+                                    user = JsonFile.getUser(loginMsg.UserName);
+                                }
+                                catch (Exception ex)
+                                {
+                                    var reply = LoginResponseMessage.Create(false, $"Login failed with error - {ex.Message}");
+                                    User.Writer.WriteMessage(reply);
+                                    log($"User {User} failed to logged in with error: {ex.Message}");
+                                    return;
+                                }
+
+                                if (user != null && user.HashedPassword == Encryption.ComputeHash(loginMsg.Password, user.Salt))
+                                {
+                                    User.Name = user.Name;
+
+                                    var reply = LoginResponseMessage.Create(true, null);
+                                    User.Writer.WriteMessage(reply);
+
+                                    log($"User {User}|{user.Name} has logged in successfully");
+                                }
+                                else
+                                {
+                                    string reason = "Wrong user name or password";
+                                    var reply = LoginResponseMessage.Create(false, reason);
+                                    User.Writer.WriteMessage(reply);
+                                    log($"User {User} failed to log in: {reason}");
+                                }
                             }
                         }
-                    }
-                    break;
+                        break;
 
-                case CommMessage.MessageType.RegisterRequest:
-                    if (msg is RegisterRequestServerMessage registerMsg)
-                    {
-                        bool registered = false;
-                        try
+                    case CommMessage.MessageType.RegisterRequest:
+                        if (msg is RegisterRequestServerMessage registerMsg)
                         {
-                            registered = Jsn.RegisterUser(registerMsg.UserName, registerMsg.Password, registerMsg.Email);
-                        }
-                        catch (Exception ex)
-                        {
-                            var reply = RegisterResponseMessage.Create(false, $"Registration has failed - {ex.Message}");
-                            User.Writer.WriteMessage(reply);
-                            log($"User {registerMsg.UserName} failed to register: {ex.Message}");
-                            return;
-                        }
+                            bool registered = false;
+                            try
+                            {
+                                if (registerMsg.UserName.All(char.IsLetterOrDigit))
+                                    registered = JsonFile.RegisterUser(registerMsg.UserName, registerMsg.Password, registerMsg.Email);
+                            }
+                            catch (Exception ex)
+                            {
+                                var reply = RegisterResponseMessage.Create(false, $"Registration has failed - {ex.Message}");
+                                User.Writer.WriteMessage(reply);
+                                log($"User {registerMsg.UserName} failed to register: {ex.Message}");
+                                return;
+                            }
 
-                        if (registered)
-                        {
-                            var reply = RegisterResponseMessage.Create(true, null);
-                            User.Writer.WriteMessage(reply);
-                            log($"User {registerMsg.UserName} has registered successfully");
+                            if (registered)
+                            {
+                                var reply = RegisterResponseMessage.Create(true, null);
+                                User.Writer.WriteMessage(reply);
+                                log($"User {registerMsg.UserName} has registered successfully");
+                            }
+                            else
+                            {
+                                var reply = RegisterResponseMessage.Create(false, "Something wrong with user data or user already exists");
+                                User.Writer.WriteMessage(reply);
+                                log($"User {registerMsg.UserName} failed to register: wrong user data or user already exists - {registerMsg.Text}");
+                            }
                         }
-                        else
-                        {
-                            var reply = RegisterResponseMessage.Create(false, "Something wrong with user data or user already exists");
-                            User.Writer.WriteMessage(reply);
-                            log($"User {registerMsg.UserName} failed to register: wrong user data or user already exists - {registerMsg.Text}");
-                        }
-                    }
-                    break;
+                        break;
 
+                }
+
+                return;
+            }
+
+            switch (msg.Type)
+            {
                 case CommMessage.MessageType.JoinLobbyRequest:
                     if (msg is JoinLobbyRequestServerMessage joinLobbyMsg)
                     {
                         Shared.Lobby? lobby = null;
                         try
                         {
-                            lobby = Jsn.getLobby(joinLobbyMsg.Name);
+                            lobby = JsonFile.getLobby(joinLobbyMsg.Name);
                         }
                         catch (Exception ex)
                         {
@@ -229,7 +233,7 @@ namespace Server
                         bool created = false;
                         try
                         {
-                            created = Jsn.RegisterLobby(createLobbyMsg.Name, createLobbyMsg.EntryCode, User.Name);
+                            created = JsonFile.RegisterLobby(createLobbyMsg.Name, createLobbyMsg.EntryCode, User.Name);
                         }
                         catch (Exception ex)
                         {

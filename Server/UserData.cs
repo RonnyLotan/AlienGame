@@ -16,8 +16,10 @@ namespace Server
         public readonly int Id;
         public TcpClient Client { get; init; }
         private NetworkStream nws_;
-        public MyReader Reader { get; init; }
-        public MyWriter Writer { get; set; }
+
+        public bool EstablishedEncryption = false;
+        public MyReader Reader { get; private set; }
+        public MyWriter Writer { get; private set; }
 
         private string? name_ = null;
         public string Name {
@@ -56,23 +58,25 @@ namespace Server
         }
         public bool InLobby { get => lobby_ is not null;  }
 
-        public string? PublicKey { get; set; }
-
         public UserData(TcpClient client, int id)
         {
-            Client = client;
-            var sessionAesKey = Encryption.GenerateAesKey();
+            Client = client;            
 
-            nws_ = Client.GetStream();
-            Reader = new MyReader(sessionAesKey, nws_);
-            Writer = new MyWriter(sessionAesKey, nws_) ;
+            nws_ = Client.GetStream();            
 
-            PublicKey = null;
             name_ = null;
             lobby_ = null;
 
             Id = id;
-        }        
+        }     
+        
+        public void SetSessionAesKey(string sessionAesKey)
+        {
+            Reader = new MyReader(sessionAesKey, nws_);
+            Writer = new MyWriter(sessionAesKey, nws_);
+
+            EstablishedEncryption = true;
+        }
 
         public void ResetLobby()
         {

@@ -126,7 +126,7 @@ namespace Client
 
             GUI.ActionComponent(ConnectButton, () =>
             {
-                ConnectButton.Enabled = true;                
+                ConnectButton.Enabled = true;
             });
 
             GUI.ActionComponent(StartGameButton, () =>
@@ -147,7 +147,7 @@ namespace Client
 
             AppendToGameLog($"---------------------------------------");
 
-            UpdateConnectionStatusInLobby();            
+            UpdateConnectionStatusInLobby();
 
             // Prepare the Start Game button
             GUI.ActionComponent(StartGameButton, () =>
@@ -163,7 +163,7 @@ namespace Client
 
             GUI.ActionComponent(JoinLobbyButton, () =>
             {
-                JoinLobbyButton.Enabled = true; 
+                JoinLobbyButton.Enabled = true;
             });
 
             ActivateNotYourTurnMode();
@@ -290,7 +290,7 @@ namespace Client
                                     var email = registerForm.Email;
 
                                     var reply = RegisterRequestServerMessage.Create(username, password, email);
-                                    WriteToServer(reply);                                    
+                                    WriteToServer(reply);
                                 }
                             }
                         }
@@ -314,7 +314,7 @@ namespace Client
                 {
                     Text = FormHeader;
                 });
-                
+
 
                 PrepareForLogin();
 
@@ -483,7 +483,7 @@ namespace Client
         private void PrepareForJoinLobby()
         {
             log($"Prepare UI for enterring loby");
-            GUI.ActionComponent(JoinLobbyButton, () => 
+            GUI.ActionComponent(JoinLobbyButton, () =>
             {
                 JoinLobbyButton.Text = "Join Lobby";
                 JoinLobbyButton.Visible = true;
@@ -527,7 +527,7 @@ namespace Client
                 MessageBox.Show($"Join Lobby Error - {reason}", "Join Lobby", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
-      
+
         private bool EstablishConnection(TcpClient client, CancellationToken token)
         {
             var nws = client.GetStream();
@@ -536,83 +536,54 @@ namespace Client
 
             log("EstablishConnection - got streams");
 
-            var (privateKey, publicKey) = Encryption.GenerateRsaKeyPair();
-
-            // Send my public key
-            log("EstablishConnection - sending PublicKey message to server");
-            writer.WriteLine(PublicKeyMessage.Create(publicKey, 0).Text);
+            var sessionAesKey = Encryption.GenerateAesKey();
+            var aesMsg = AesKeyMessage.Create(Encryption.RsaEncrypt(sessionAesKey, Global.PUBLIC_KEY)).Text;
+            writer.WriteLine(aesMsg);
+            log($"EstablishConnection - sent AES key <{sessionAesKey}> to server");
 
             int? myId = null;
-            string? aesKey = null;
 
             // Get public key and Id from server
             while (!token.IsCancellationRequested)
             {
-                log("EstablishConnection - enter loop waiting to receive public key from server");
+                log("EstablishConnection - enter loop waiting to receive user Id from server");
                 string? msg;
                 if ((msg = reader.ReadLine()) != null)
                 {
                     log($"EstablishConnection - got message from server: {msg}");
                     var parsedMessage = CommMessage.FromText(msg);
-                    log($"EstablishConnection - parsed message: {parsedMessage}");
+                    log($"EstablishConnection - parsed message: {parsedMessage.Text}");
 
-                    if (parsedMessage.Type == CommMessage.MessageType.PublicKey && parsedMessage is PublicKeyMessage publicKeyMsg)
+                    if (parsedMessage.Type == CommMessage.MessageType.UserId && parsedMessage is UserIdMessage userIdMsg)
                     {
-                        myId = publicKeyMsg.Id;
-                        
-                        log($"EstablishConnection - got public key message. My Id: {myId}");
+                        myId = userIdMsg.Id;
+
+                        log($"EstablishConnection - got user id message. My Id: {myId}");
 
                         break;
                     }
                 }
             }
-            log("EstablishConnection - done getting public key from server");
+            log("EstablishConnection - done getting userId from server");
 
             if (myId is not null)
             {
                 logger_ = new Logger($"Client #{myId}");
-                log($"Got public key from server");
 
-                log("EstablishConnection - enter loop to get AES key");
-                // Get public key and Id from server
-                while (!token.IsCancellationRequested)
+                try
                 {
-                    string? msg;
-                    if ((msg = reader.ReadLine()) != null)
-                    {
-                        log($"EstablishConnection - got messge from server: {msg}");
-                        var parsedMessage = CommMessage.FromText(msg);
-                        log($"EstablishConnection - parsed message: {parsedMessage}");
-
-                        if (parsedMessage.Type == CommMessage.MessageType.AesKey && parsedMessage is AesKeyMessage aesKeyMsg)
-                        {
-                            aesKey = aesKeyMsg.Key;
-                            log($"EstablishConnection - got AES key: {aesKey}");
-
-                            break;
-                        }
-                    }
+                    User = new UserData(myId.Value, client, nws, sessionAesKey, logger_);
+                    return true;
                 }
-                log($"EstablishConnection - left AES loop");
-
-                if (aesKey is not null)
+                catch (Exception e)
                 {
-                    try
-                    {
-                        User = new UserData(myId.Value, client, nws, aesKey, logger_);
-                        return true;
-                    }
-                    catch (Exception e)
-                    {
-                        log($"EstablishConnection - failed create UserData: {e.Message}");
-                        return false;
-                    }
+                    log($"EstablishConnection - failed create UserData: {e.Message}");
+                    return false;
                 }
-                else
-                    log($"EstablishConnection - failed to get Id or public key");
+
             }
             else
-                log($"EstablishConnection - failed to get Id or public key");
+                log($"EstablishConnection - failed to get UserId");
 
             return false;
         }
@@ -861,7 +832,7 @@ namespace Client
                 log($"Send start game message to server");
 
                 var response = StartGameServerMessage.Create();
-                WriteToServer(response);                
+                WriteToServer(response);
             }
             else
             {

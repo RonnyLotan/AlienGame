@@ -9,12 +9,10 @@ namespace Shared
 {
     public class MyWriter
     {
-        private StreamWriter writer_;
+        private StreamWriter? writer_;
         private string sessionAesKey_;
         public string SessionAesKey {  get { return sessionAesKey_; } }
 
-        public bool EncryptionEstablished = !Global.USE_ENCRYPTION;
-        
         public MyWriter(string sessionAesKey, NetworkStream nws)
         {
             sessionAesKey_ = sessionAesKey;
@@ -22,24 +20,25 @@ namespace Shared
             writer_ = new StreamWriter(nws, Encoding.UTF8) { AutoFlush = true };            
         }
 
+        public MyWriter()
+        {
+            sessionAesKey_ = "";
+            writer_ = null; 
+        }
+
         public void WriteMessage(CommMessage message, bool encrypt = true)
         {
+            if (writer_ is null)
+                throw new Exception("MyWriter was called before it was initialized");
+
             var line = encrypt ? message.EncryptedText(sessionAesKey_) : message.Text;
             writer_.WriteLine(line);
         }
 
-        public void sendAesKey(string rsaPublicKey)
-        {
-            string encryptedAesKey = Encryption.RsaEncrypt(sessionAesKey_, rsaPublicKey);
-            var reply = AesKeyMessage.Create(encryptedAesKey);
-            WriteMessage(reply);
-
-            EncryptionEstablished = true;
-        }
-
         public void Close()
         {
-            writer_.Close();
+            if (writer_ is not null)
+                writer_.Close();
         }
     }
 }

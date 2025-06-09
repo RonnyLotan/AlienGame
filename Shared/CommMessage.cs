@@ -25,7 +25,8 @@ namespace Shared
             CreateLobby = 113,
             CanStartGame = 114,
             AnnounceWinner = 115,
-            LobbyClosing = 116,            
+            LobbyClosing = 116,
+            UserId = 117,
 
             // Messages from clients to server
             BroadcastChat = 200,
@@ -40,9 +41,8 @@ namespace Shared
 
             // Messages for both directions
             ResponseToOffer = 300,
-            InterruptGame = 301,
-            PublicKey = 302,
-            Encrypted = 303,
+            InterruptGame = 301,            
+            Encrypted = 302,
 
             // Errors
             ParseError = 900,
@@ -114,7 +114,8 @@ namespace Shared
                     case MessageType.AesKey: return AesKeyMessage.FromText(msgBody);
                     case MessageType.CanStartGame: return CanStartGameClientMessage.FromText(msgBody);
                     case MessageType.AnnounceWinner: return AnnounceWinnerClientMessage.FromText(msgBody);
-                    case MessageType.LobbyClosing: return LobbyClosingClientMessage.FromText(msgBody);                    
+                    case MessageType.LobbyClosing: return LobbyClosingClientMessage.FromText(msgBody);
+                    case MessageType.UserId: return UserIdMessage.FromText(msgBody);
 
                     // Messages from clients to server
                     case MessageType.BroadcastChat: return BroadcastChatServerMessage.FromText(msgBody);
@@ -129,8 +130,7 @@ namespace Shared
 
                     // Messages for both directions
                     case MessageType.ResponseToOffer: return ResponseToOfferMessage.FromText(msgBody);
-                    case MessageType.InterruptGame: return InterruptGameMessage.FromText(msgBody);
-                    case MessageType.PublicKey: return PublicKeyMessage.FromText(msgBody);
+                    case MessageType.InterruptGame: return InterruptGameMessage.FromText(msgBody);                    
 
                     case MessageType.Encrypted: return EncryptedMessage.FromText(msgBody, aesKey);
 
@@ -1028,50 +1028,38 @@ namespace Shared
     }
 
     // Message to provide the RSA public key   
-    public class PublicKeyMessage : CommMessage
+    public class UserIdMessage : CommMessage
     {
-        private static MessageType type_ = MessageType.PublicKey;
+        private static MessageType type_ = MessageType.UserId;
 
         public static CommMessage FromText(string msgBody)
         {
-            string[] splitMsg = msgBody.Split(';');
-            if (splitMsg.Length != 2 ||
-                string.IsNullOrEmpty(splitMsg[0]) ||
-                string.IsNullOrEmpty(splitMsg[1]))
-            {
-                return MessageBodyErrorMessage.Create(type_, msgBody);
-            }
-
-            var key = splitMsg[0];
-
-            if (int.TryParse(splitMsg[1], out int id))
-                return Create(key, id);
+            if (int.TryParse(msgBody, out int id))
+                return Create(id);
 
             return MessageBodyErrorMessage.Create(type_, msgBody);
         }
 
-        public static PublicKeyMessage Create(string key, int Id)
+        public static UserIdMessage Create(int Id)
         {
-            return new PublicKeyMessage(key, Id);
+            return new UserIdMessage(Id);
         }
 
-        private PublicKeyMessage(string key, int id)
+        private UserIdMessage(int id)
         {
-            Key = key;
             Id = id;
         }
 
         public override MessageType Type => type_;
-        public override string Text => base.Text + $"{Key};{Id}";
+        public override string Text => base.Text + $"{Id}";
 
-        public string Key;
         public int Id;
     }
 
     // An encrypted message 
     public class EncryptedMessage : CommMessage
     {
-        private static MessageType type_ = MessageType.PublicKey;
+        private static MessageType type_ = MessageType.UserId;
 
         public static new CommMessage FromText(string msgBody, string? aesKey)
         {

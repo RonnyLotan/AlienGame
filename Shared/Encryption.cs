@@ -140,7 +140,7 @@ namespace Shared
         {
             using (var sha256 = SHA256.Create())
             {
-                byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password + salt));
+                byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(Global.PEPPER + password + salt));
                 StringBuilder builder = new StringBuilder();
                 for (int i = 0; i < bytes.Length; i++)
                 {

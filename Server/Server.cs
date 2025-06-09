@@ -161,10 +161,7 @@ namespace Server
                         logger_.Log($"New client connected: #{handler.Id}");
 
                         AddClient(handler);
-
-                        var msg = PublicKeyMessage.Create(PublicKey, handler.Id);
-                        handler.User.Writer.WriteMessage(msg, false);
-
+                        
                         handler.Start();
                     }
 
